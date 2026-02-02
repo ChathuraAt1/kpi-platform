@@ -11,14 +11,14 @@ class TaskLogController extends Controller
 {
     public function index(Request $request)
     {
-        $query = TaskLog::query()->with('task','user','kpiCategory');
+        $query = TaskLog::query()->with('task', 'user', 'kpiCategory');
         if ($request->has('user_id')) {
             $query->where('user_id', $request->query('user_id'));
         }
         if ($request->has('date')) {
             $query->where('date', $request->query('date'));
         }
-        $logs = $query->orderBy('date','desc')->paginate(25);
+        $logs = $query->orderBy('date', 'desc')->paginate(25);
         return response()->json($logs);
     }
 
@@ -38,7 +38,7 @@ class TaskLogController extends Controller
             \App\Jobs\ClassifyTaskLogs::dispatch($ids);
         } catch (\Throwable $e) {
             // log and continue — classification is best-effort
-            \Illuminate\Support\Facades\Log::error('Failed to dispatch ClassifyTaskLogs: '.$e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Failed to dispatch ClassifyTaskLogs: ' . $e->getMessage());
         }
 
         return response()->json(['created' => $created], 201);
@@ -46,7 +46,7 @@ class TaskLogController extends Controller
 
     public function show($id)
     {
-        $log = TaskLog::with('task','user','kpiCategory','approvedBy')->findOrFail($id);
+        $log = TaskLog::with('task', 'user', 'kpiCategory', 'approvedBy')->findOrFail($id);
         return response()->json($log);
     }
 

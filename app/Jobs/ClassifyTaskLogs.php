@@ -55,7 +55,7 @@ class ClassifyTaskLogs implements ShouldQueue
                     $log->save();
                 }
             } catch (\Throwable $e) {
-                Log::error('LLM classification failed for TaskLog '.$log->id.': '.$e->getMessage());
+                Log::error('LLM classification failed for TaskLog ' . $log->id . ': ' . $e->getMessage());
                 // let the job fail or continue depending on policy
             }
         }

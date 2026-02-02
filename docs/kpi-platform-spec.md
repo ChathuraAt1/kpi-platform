@@ -433,6 +433,37 @@ Prompt example (system + few-shot):
 System: You map the following user task descriptions into one of these KPI categories: [Delivery, Support, Administration, Research]. Return JSON: {"category":"<one>","confidence":0.00,"reasons":"..."}
 
 Example: "Fixed production API bug" -> {"category":"Support","confidence":0.98}
+
+### Other provider options & integration alternatives
+
+- OpenAI / Azure OpenAI: high-quality chat models; Azure requires `endpoint` + `api_key` and may return different headers for usage. Good for classification and summarization.
+- Anthropic (Claude): chat-style interface with deterministic controls; requires different prompt styles and handles JSON outputs well.
+- Cohere: strong for classification and embeddings; cheaper options for high-throughput inference.
+- Google Gemini / Vertex AI (AI Studio): enterprise-grade models via Google Cloud; supports long-context models and model selection by endpoint.
+- Hugging Face Inference API / Self-hosted HF models: supports custom models (Llama, Falcon). Useful for privacy / on-prem deployments.
+- Self-hosted LLMs (Llama 2, Mistral, private HF): run inference on local GPUs or managed inference clusters for sensitive data; requires extra infra (GPU, autoscaling).
+- Custom HTTP endpoints: allow teams to plug any model that accepts simple request/response JSON (useful for internal model servers).
+
+Integration alternatives:
+- Synchronous calls for small batches with immediate UX feedback (but risk higher latency and retries).
+- Asynchronous queued inference (recommended for batch classification and summarization) with retries, DLQ, and backoff.
+- Webhook/callback support for providers that offer async callbacks; useful to reduce worker time.
+- Use embeddings + vector search (via OpenAI/HF/Cohere) to classify by similarity to labeled examples when categories are fuzzy.
+
+Provider selection guidelines:
+- Prefer deterministic models (low temperature) for classification.
+- Use smaller cheaper models for routine classification and reserve larger models for summarization or complex reasoning.
+- Store provider metadata in `api_keys.meta` (model, endpoint, region, rate-limit headers mapping).
+
+Cost & monitoring recommendations:
+- Track per-key token/usage in `api_keys.daily_usage` and expose dashboards for spend by provider.
+- Implement token-budget guards (do not call provider when projected monthly spend exceeds threshold) and fallbacks to cheaper providers.
+- Emit metrics for latency, error rates, and 429 counts; alert on abnormal cost spikes.
+
+Privacy and compliance notes:
+- Redact or pseudonymize PII before sending prompts when possible.
+- For regulated environments, prefer on-prem or private-cloud hosted models and restrict outbound traffic.
+
 ```
 
 ## 11. API Key Management Design
@@ -503,6 +534,139 @@ Total MVP: ~31 dev-days
 
 - I can scaffold the DB migrations and models next (recommended), or produce the full API controller skeletons and route definitions.
 - Choose next: `migrate+models` or `api-skeleton` or `frontend-skeleton`.
+
+## 18. Detailed Functional Requirements (from stakeholder brief)
+
+This section expands the spec with exact product requirements described by the stakeholder: twice-daily plan/actuals workflow, task-based to-do driven data model, precise submission rules, per-role KPI configuration, and API-key repository behavior.
+
+18.1 Submission workflow (morning plan / evening actuals)
+
+- Two submissions per workday:
+    - Morning (Plan): employee submits planned to-dos for the day (may include unfinished carry-over tasks).
+    - Evening (Actual): employee submits actual task logs with worked durations and completion percentage.
+- Required fields per log row: `task_id` (optional), `title` (if new task), `start_time`, `end_time`, `duration_hours`, `description`, `priority` (low|medium|high|urgent), `assigned_by` (user id), `completion_percentage` (0-100), `attachments` (optional).
+- Validation rules:
+    - `start_time` < `end_time` and `duration_hours` equals difference (allow minor rounding tolerance).
+    - Sum of `duration_hours` per day must not exceed configured shift working minutes (default workday length minus breaks).
+    - `completion_percentage` only required for tasks that are marked complete or when partial completion is reported.
+- Deadlines & reminders:
+    - Daily submission deadline: 23:00 local time; system should reject late submissions unless manager override.
+    - Reminder cadence: 20:00 and 22:30 local time; configurable per-team.
+    - Escalation: if no submission by 23:30, notify supervisor and HR per team policy.
+- Carry-over logic:
+    - Any task with `completion_percentage` < 100 at day's end is automatically copied into the next morning's plan (status: unfinished).
+    - New tasks created after the morning plan are accepted during evening submission and added to the task registry.
+
+    18.2 Shift & Breaks configuration
+
+- Default company shift: weekdays 08:30–17:30 with breaks at 10:30–10:50, 13:00–14:00, 16:00–16:20.
+- Per-user overrides: each user has `settings.shift` JSON with `start`, `end`, and `breaks` array. Overrides validated against company policy.
+- UI presets: allow users to save common shift profiles and apply them to a day's submission.
+
+    18.3 To-Do / Task management
+
+- Task model supports `assigned_by`, `assignee_id`, `planned_hours`, `priority`, `kpi_category_id`, `recurrence_rule`, and `metadata`.
+- Management features:
+    - Create/edit/delete tasks, set recurring tasks, bulk import from CSV/Excel.
+    - View per-employee to-do progress in a dashboard (planned vs actual hours, completion %).
+
+    18.4 KPI categories and role-based configuration
+
+- KPI categories are created and managed by management/HR. Each category has `name`, `description`, and default `weight`.
+- Role-specific configuration:
+    - For each job role, managers set a per-category weight map. Weights are normalized during calculations.
+    - A default role profile is available and can be cloned/modified.
+
+    18.5 KPI calculation algorithm (detailed)
+    The system computes per-category and overall KPI scores monthly. The default formulas below are configurable by management.
+
+- Per-task score:
+    - Let p = `completion_percentage` (0..100), w_task = `priority_weight` (map: low=1, medium=2, high=3, urgent=4 by default), then task_score_raw = p/100 \* w_task.
+
+- Per-category rule-based score (monthly):
+    - For category C, sum_task_scores_C = sum(task_score_raw for all tasks assigned to user in month and categorized as C)
+    - sum_max_possible_C = sum(1.0 \* w_task for all tasks assigned in month for C) // assumes max completion 100%
+    - rule_score_C_10 = (sum_task_scores_C / sum_max_possible_C) \* 10 (range 0..10)
+    - If sum_max_possible_C == 0 then rule_score_C_10 = null (no data)
+
+- LLM-based category score (monthly):
+    - Submit summarized activity per-category to LLM with token-optimized batch; LLM returns score between 0..10 and a confidence value.
+
+- Manager/HR score: manual 0..10 entry per-category with optional remark.
+
+- Final category score:
+    - Let sources = rule_score (R), llm_score (L), manager_score (M). Default weights: wR=1, wL=1, wM=1 (configurable).
+    - final_category_score = weighted_average(non-null sources) on 0..10 scale.
+
+- Overall KPI (monthly):
+    - Let final_category_score_C be computed above and weight_C be the category weight for user's role.
+    - overall_kpi_10 = sum_C(final_category_score_C \* weight_C) / sum_C(weight_C)
+    - overall_kpi_percent = overall_kpi_10 \* 10 (i.e., convert to percent out of 100)
+
+Example (numeric):
+
+- Two categories: Delivery (weight 0.6), Support (weight 0.4).
+- Delivery: R=8.0, L=7.5, M=8.5 => final = (8.0+7.5+8.5)/3 = 8.0
+- Support: R=9.0, L=8.0, M=8.0 => final = 8.333
+- overall_kpi_10 = 8.0*0.6 + 8.333*0.4 = 8.1332 -> overall_percent = 81.33%
+
+    18.6 LLM classification & monthly scoring workflow
+
+- Per-submission:
+    - On create, a background job runs classification (RuleBasedClassifier -> LLMClient) and stores `llm_suggestion` with `category`, `confidence`, `raw`.
+    - UI shows LLM suggestion and confidence; allows user (or later manager) to override category.
+- Monthly batch:
+    - On 1st of month (configurable), system aggregates monthly rows and enqueues summarization and scoring jobs.
+    - Batch jobs should group entries per-user and trim descriptions to reduce tokens; include examples for categories in prompts.
+    - Store raw LLM response and parsed scores for audit and retraining.
+
+    18.7 API-Key repository & provider failover
+
+- Each `api_keys` entry: `provider`, `name`, `encrypted_key`, `meta` (model, endpoint, region), `priority`, `daily_quota`, `daily_usage`, `status` (active,degraded,revoked).
+- Selection rules:
+    - Filter by provider & active status, exclude keys over quota or degraded.
+    - Sort by `priority` asc; use round-robin within same priority.
+    - On 429/5xx: increment error counter, mark key `degraded` and try next key; record error and notify admin if consecutive failures.
+- Admin UI: add/rotate/test keys, view usage and health, force-enable/disable keys, set `meta` (endpoint, available models).
+
+    18.8 Roles, supervisor chains and peer evaluation
+
+- Roles: `employee`, `supervisor`, `hr`, `management`, `admin`. Each role has permissions documented earlier.
+- Supervisor chains:
+    - Each user can have a `supervisor_id`. Supervisors themselves are users and can be assigned supervisors (hierarchical).
+    - Supervisors and HR also get KPIs computed by same process; they appear in manager dashboards for review.
+
+    18.9 Notifications, approvals & SLA
+
+- Notifications: email, in-app, Slack/Teams webhook. Triggers: missing submission reminders, approval requests, evaluation published, API key health alerts.
+- Approval SLA: managers should review pending submissions within 48 hours; overdue approval triggers escalation to manager's supervisor and HR.
+
+    18.10 UI/UX requirements
+
+- Excel-like task grid with: column inline edit (start/end times, duration, description, priority, completion %), keyboard navigation, bulk-select and bulk-submit.
+- Quick-add row to create new tasks inline; attachment dropzone per-row.
+- Visual cues: LLM suggestion badge (category + confidence), approval status chips (pending/approved/rejected), overdue highlights.
+- Shift presets and per-day override UI; validation errors shown inline.
+
+    18.11 Audit, export & retention
+
+- Audit logs for create/update/delete of tasks, logs, approvals, API keys, and evaluation publications.
+- Export: CSV/Excel per user, per team, per date-range; PDF monthly reports for management.
+- Retention: configurable retention policy for raw LLM responses (default 90 days), retention for attachments (default 1 year), GDPR right-to-be-forgotten workflow.
+
+    18.12 Non-functional requirements
+
+- Performance: support concurrent use for N employees (estimate needed) with background workers processing LLM jobs. Use Redis queues and horizontally scalable workers.
+- Security: TLS, encrypted keys, RBAC, 2FA for admin roles.
+- Observability: logs, metrics, per-key usage dashboards, alerts for cost spikes.
+
+    18.13 Acceptance criteria (extended)
+
+- Morning plan and evening actuals are saved and editable before daily deadline.
+- Unfinished tasks automatically carry over to next morning plan.
+- LLM suggests categories on submission; suggestion appears in UI with confidence and can be overridden.
+- System produces a draft monthly evaluation combining rule-based, LLM, and manager scores; manager can publish final score.
+- API-key failover works: when a key returns 429, system uses another key and records the incident.
 
 ---
 

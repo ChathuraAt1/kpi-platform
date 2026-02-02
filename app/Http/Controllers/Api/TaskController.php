@@ -14,7 +14,7 @@ class TaskController extends Controller
     {
         $user = $request->user();
         // TODO: apply role-based visibility (own tasks vs team)
-        $tasks = Task::with('assignee','owner','kpiCategory')->paginate(20);
+        $tasks = Task::with('assignee', 'owner', 'kpiCategory')->paginate(20);
         return response()->json($tasks);
     }
 
@@ -28,7 +28,7 @@ class TaskController extends Controller
 
     public function show($id)
     {
-        $task = Task::with('logs','assignee','owner','kpiCategory')->findOrFail($id);
+        $task = Task::with('logs', 'assignee', 'owner', 'kpiCategory')->findOrFail($id);
         return response()->json($task);
     }
 

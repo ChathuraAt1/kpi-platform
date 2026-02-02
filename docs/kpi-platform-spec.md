@@ -13,16 +13,16 @@ Scope (MVP): daily task submissions, todo management, per-submission LLM categor
 ## 2. Goals & Non-goals
 
 - Goals:
-  - Replace emailed Excel logs with structured submissions.
-  - Provide easy, excel-like UI for batch entry.
-  - Provide configurable work hours and breaks per user/role.
-  - Use LLMs to categorize tasks into KPI categories.
-  - Provide monthly KPI evaluations that combine rule-based scoring, LLM scoring, and manager/HR input.
-  - Maintain a secure repo of API keys and perform provider failover.
+    - Replace emailed Excel logs with structured submissions.
+    - Provide easy, excel-like UI for batch entry.
+    - Provide configurable work hours and breaks per user/role.
+    - Use LLMs to categorize tasks into KPI categories.
+    - Provide monthly KPI evaluations that combine rule-based scoring, LLM scoring, and manager/HR input.
+    - Maintain a secure repo of API keys and perform provider failover.
 
 - Non-goals (MVP):
-  - Machine learning training pipelines (beyond storing labeled overrides)
-  - Full HR payroll integration (out of scope)
+    - Machine learning training pipelines (beyond storing labeled overrides)
+    - Full HR payroll integration (out of scope)
 
 ## 3. Tech Stack (recommended)
 
@@ -202,146 +202,195 @@ Indexes: common indexes on `user_id`, `date`, `status`, `kpi_category_id` and FK
 
 Auth notes: Use Laravel Sanctum for SPA sessions or token-based. All `/api` endpoints are JSON. Use standard HTTP status codes.
 
-1) Register
+1. Register
+
 - POST /api/register
 - Auth: public
 - Body:
+
 ```json
-{ "name":"string", "email":"string", "password":"string" }
-```
-- Response 201:
-```json
-{ "user": {"id":1, "name":"...","email":"..."}, "token":"..." }
+{ "name": "string", "email": "string", "password": "string" }
 ```
 
-2) Login
+- Response 201:
+
+```json
+{ "user": { "id": 1, "name": "...", "email": "..." }, "token": "..." }
+```
+
+2. Login
+
 - POST /api/login
 - Auth: public
 - Body:
+
 ```json
-{ "email":"string", "password":"string" }
+{ "email": "string", "password": "string" }
 ```
+
 - Response 200:
+
 ```json
 { "user": {"id":1,...}, "token":"..." }
 ```
 
-3) Get current user
+3. Get current user
+
 - GET /api/user
 - Auth: Bearer or Sanctum cookie
 - Response 200: user plus `roles` and `settings`
 
-4) Tasks - List
+4. Tasks - List
+
 - GET /api/tasks?assigned=true&status=open&from=2026-01-01&to=2026-01-31
 - Auth: authenticated
 - Perms: users see their tasks; managers see team
 - Response 200: paginated tasks
 
-5) Tasks - Create
+5. Tasks - Create
+
 - POST /api/tasks
 - Auth: authenticated
 - Body:
+
 ```json
-{ "title":"string","description":"string","assignee_id":123,"kpi_category_id":3,"planned_hours":1.5 }
+{
+    "title": "string",
+    "description": "string",
+    "assignee_id": 123,
+    "kpi_category_id": 3,
+    "planned_hours": 1.5
+}
 ```
+
 - Response 201: created task object
 
-6) Task Logs - Batch Submit (core)
+6. Task Logs - Batch Submit (core)
+
 - POST /api/task-logs
 - Auth: authenticated
 - Purpose: submit multiple rows at once (morning plan or end-of-day actuals)
 - Body:
+
 ```json
 {
-  "date":"2026-02-02",
-  "rows":[
-    {"task_id":1, "duration_hours":2.5, "start_time":"08:30","end_time":"10:50","description":"Worked on X","priority":"high","kpi_category_id":null}
-  ],
-  "shift_override": {"start":"08:30","end":"17:30","breaks":[{"from":"10:30","to":"10:50"}]}
+    "date": "2026-02-02",
+    "rows": [
+        {
+            "task_id": 1,
+            "duration_hours": 2.5,
+            "start_time": "08:30",
+            "end_time": "10:50",
+            "description": "Worked on X",
+            "priority": "high",
+            "kpi_category_id": null
+        }
+    ],
+    "shift_override": {
+        "start": "08:30",
+        "end": "17:30",
+        "breaks": [{ "from": "10:30", "to": "10:50" }]
+    }
 }
 ```
+
 - Response 202: accepted; returns ids and LLM-suggestion placeholders
 - Behavior: API enqueues LLM classification job per-row or batched per-user/day.
 
-7) Task Log - Approve
+7. Task Log - Approve
+
 - POST /api/task-logs/{id}/approve
 - Auth: manager
 - Body: { "comment": "Looks good" }
 - Response: 200 with updated status
 
-8) Todos endpoints: /api/todos (CRUD) — standard
+8. Todos endpoints: /api/todos (CRUD) — standard
 
-9) KPI endpoints
+9. KPI endpoints
+
 - GET /api/kpis — list categories and weights
 - GET /api/users/{id}/kpis?year=2026&month=1 — returns monthly evaluations
 
-10) Evaluations - Generate (admin/system)
+10. Evaluations - Generate (admin/system)
+
 - POST /api/evaluations/generate
 - Auth: system/admin
 - Body: { "year":2026, "month":1 }
 - Response: 202 accepted with evaluation job id
 - Behavior: enqueues aggregation job which runs rule-based scoring, calls LLM for summary/scoring, stores draft in `monthly_evaluations`.
 
-11) API Keys - Admin
+11. API Keys - Admin
+
 - GET /api/api-keys
 - POST /api/api-keys
-  - Body:
-  ```json
-  {"provider":"openai","name":"key-prod-1","key":"sk-...","priority":10,"daily_quota":100000}
-  ```
+    - Body:
+    ```json
+    {
+        "provider": "openai",
+        "name": "key-prod-1",
+        "key": "sk-...",
+        "priority": 10,
+        "daily_quota": 100000
+    }
+    ```
 - DELETE /api/api-keys/{id}
 
-12) Admin overview
+12. Admin overview
+
 - GET /api/admin/overview — metrics: missing submissions, late rates, LLM usage, keys health
 
 Error format:
+
 ```json
-{ "message":"Validation error","errors": {"field":["msg"]} }
+{ "message": "Validation error", "errors": { "field": ["msg"] } }
 ```
 
 ## 8. Request/Response JSON Schemas (examples)
 
 Task Log Row (input):
+
 ```json
 {
-  "task_id": 42,
-  "duration_hours": 1.5,
-  "start_time": "08:30",
-  "end_time": "10:00",
-  "description": "Fixed issue #123",
-  "priority": "high",
-  "kpi_category_id": null
+    "task_id": 42,
+    "duration_hours": 1.5,
+    "start_time": "08:30",
+    "end_time": "10:00",
+    "description": "Fixed issue #123",
+    "priority": "high",
+    "kpi_category_id": null
 }
 ```
 
 Task Log Row (stored/returned):
+
 ```json
 {
-  "id": 987,
-  "task_id": 42,
-  "user_id": 11,
-  "date": "2026-02-02",
-  "duration_hours": 1.5,
-  "description": "Fixed issue #123",
-  "kpi_category_id": 3,
-  "llm_suggestion": {"category":"Operational Support","confidence":0.93},
-  "status":"pending",
-  "created_at":"..."
+    "id": 987,
+    "task_id": 42,
+    "user_id": 11,
+    "date": "2026-02-02",
+    "duration_hours": 1.5,
+    "description": "Fixed issue #123",
+    "kpi_category_id": 3,
+    "llm_suggestion": { "category": "Operational Support", "confidence": 0.93 },
+    "status": "pending",
+    "created_at": "..."
 }
 ```
 
 Evaluation object:
+
 ```json
 {
-  "id":123,
-  "user_id":11,
-  "year":2026,
-  "month":1,
-  "score":8.4,
-  "breakdown": {"Delivery":8.0, "Support":9.2},
-  "sources": {"rule_based":7.9,"llm":8.5,"manager":8.8},
-  "status":"draft",
-  "created_at":"..."
+    "id": 123,
+    "user_id": 11,
+    "year": 2026,
+    "month": 1,
+    "score": 8.4,
+    "breakdown": { "Delivery": 8.0, "Support": 9.2 },
+    "sources": { "rule_based": 7.9, "llm": 8.5, "manager": 8.8 },
+    "status": "draft",
+    "created_at": "..."
 }
 ```
 
@@ -351,6 +400,7 @@ Evaluation object:
 - Install `spatie/laravel-permission`.
 
 Roles and baseline permissions:
+
 - `employee` (submit logs, create todos, view own KPIs)
 - `supervisor` (view team, approve/reject logs, write remarks)
 - `hr` (view/publish evaluations, export)
@@ -362,11 +412,13 @@ Middleware: `role:supervisor` and `permission:approve_log` style gates.
 ## 10. LLM Integration Design
 
 Objectives:
+
 - Map free-text task descriptions to KPI categories per-row.
 - Summarize monthly data into human-readable narratives.
 - Provide confidence and top-N suggestions.
 
 Design:
+
 1. Light-weight rule-based classifier (regex/keyword + category lookup) runs first for cheap, deterministic mapping.
 2. LLM worker runs asynchronously (Redis queue) on accepted submission batches. Worker groups rows per-user-per-day into batches to reduce tokens.
 3. Prompting: fixed system prompt enumerating category names, definitions, and 6-10 examples; strict JSON output schema required.
@@ -376,6 +428,7 @@ Design:
 7. Persistence: store raw LLM response, parsed suggestion (category, confidence), provider metadata, and request token usage for billing.
 
 Prompt example (system + few-shot):
+
 ```
 System: You map the following user task descriptions into one of these KPI categories: [Delivery, Support, Administration, Research]. Return JSON: {"category":"<one>","confidence":0.00,"reasons":"..."}
 
@@ -387,16 +440,19 @@ Example: "Fixed production API bug" -> {"category":"Support","confidence":0.98}
 Schema: `api_keys` table (see ER diagram). Keys encrypted at rest (Laravel encryption or KMS). Store provider metadata (rate-limit headers mapping) in `meta` JSON.
 
 Selection algorithm:
+
 - Filter active keys for requested provider.
 - Exclude keys exceeding daily_quota or marked degraded.
 - Sort by priority ascending (lower = preferred) and last_checked_at success.
 - Use round-robin within same priority if multiple keys.
 
 Health & rate-limit detection:
+
 - On each provider call, parse response headers: `X-RateLimit-Remaining`, `Retry-After`, etc.
 - If 429 or repeated 5xx errors, increment error counter and mark key as `degraded` for a cooldown window (circuit-breaker).
 
 Admin UI features:
+
 - Add / rotate / disable key
 - Test key (test request to provider)
 - Show daily_usage, health graph, last_error

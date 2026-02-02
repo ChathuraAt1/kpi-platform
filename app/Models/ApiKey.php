@@ -20,11 +20,14 @@ class ApiKey extends Model
         'daily_usage',
         'status',
         'last_checked_at',
+        'failure_count',
+        'cooldown_until',
     ];
 
     protected $casts = [
         'meta' => 'array',
         'last_checked_at' => 'datetime',
+        'cooldown_until' => 'datetime',
     ];
 
     public function user()

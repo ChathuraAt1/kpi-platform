@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\TaskLog;
 use Illuminate\Http\Request;
+use App\Http\Requests\StoreTaskLogRequest;
 
 class TaskLogController extends Controller
 {
@@ -21,19 +22,9 @@ class TaskLogController extends Controller
         return response()->json($logs);
     }
 
-    public function store(Request $request)
+    public function store(StoreTaskLogRequest $request)
     {
-        $payload = $request->validate([
-            'date' => 'required|date',
-            'rows' => 'required|array|min:1',
-            'rows.*.task_id' => 'nullable|exists:tasks,id',
-            'rows.*.duration_hours' => 'required|numeric',
-            'rows.*.start_time' => 'nullable|date_format:H:i',
-            'rows.*.end_time' => 'nullable|date_format:H:i',
-            'rows.*.description' => 'nullable|string',
-            'rows.*.kpi_category_id' => 'nullable|exists:kpi_categories,id',
-        ]);
-
+        $payload = $request->validated();
         $created = [];
         foreach ($payload['rows'] as $row) {
             $row['date'] = $payload['date'];

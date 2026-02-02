@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\ApiKey;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use App\Http\Requests\StoreApiKeyRequest;
+use App\Http\Requests\UpdateApiKeyRequest;
 
 class ApiKeyController extends Controller
 {
@@ -16,16 +18,9 @@ class ApiKeyController extends Controller
         return response()->json($keys);
     }
 
-    public function store(Request $request)
+    public function store(StoreApiKeyRequest $request)
     {
-        $this->authorize('manageApiKeys');
-        $data = $request->validate([
-            'provider' => 'required|string',
-            'name' => 'required|string',
-            'key' => 'required|string',
-            'priority' => 'nullable|integer',
-            'daily_quota' => 'nullable|integer',
-        ]);
+        $data = $request->validated();
 
         $apiKey = ApiKey::create([
             'user_id' => $request->user()->id,
@@ -46,17 +41,11 @@ class ApiKeyController extends Controller
         return response()->json($key);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateApiKeyRequest $request, $id)
     {
         $this->authorize('manageApiKeys');
         $apiKey = ApiKey::findOrFail($id);
-        $data = $request->validate([
-            'name' => 'nullable|string',
-            'priority' => 'nullable|integer',
-            'daily_quota' => 'nullable|integer',
-            'status' => 'nullable|string',
-        ]);
-        $apiKey->update($data);
+        $apiKey->update($request->validated());
         return response()->json($apiKey);
     }
 

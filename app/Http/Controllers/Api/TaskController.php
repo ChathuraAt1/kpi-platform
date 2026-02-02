@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Task;
 use Illuminate\Http\Request;
+use App\Http\Requests\StoreTaskRequest;
+use App\Http\Requests\UpdateTaskRequest;
 
 class TaskController extends Controller
 {
@@ -16,19 +18,10 @@ class TaskController extends Controller
         return response()->json($tasks);
     }
 
-    public function store(Request $request)
+    public function store(StoreTaskRequest $request)
     {
-        $data = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'assignee_id' => 'nullable|exists:users,id',
-            'kpi_category_id' => 'nullable|exists:kpi_categories,id',
-            'planned_hours' => 'nullable|numeric',
-            'due_date' => 'nullable|date',
-        ]);
-
+        $data = $request->validated();
         $data['owner_id'] = $request->user()->id;
-
         $task = Task::create($data);
         return response()->json($task, 201);
     }
@@ -39,20 +32,11 @@ class TaskController extends Controller
         return response()->json($task);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateTaskRequest $request, $id)
     {
         $task = Task::findOrFail($id);
-        $data = $request->validate([
-            'title' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string',
-            'assignee_id' => 'nullable|exists:users,id',
-            'kpi_category_id' => 'nullable|exists:kpi_categories,id',
-            'planned_hours' => 'nullable|numeric',
-            'due_date' => 'nullable|date',
-            'status' => 'nullable|string',
-        ]);
-
-        $task->update($data);
+        $this->authorize('update', $task);
+        $task->update($request->validated());
         return response()->json($task);
     }
 

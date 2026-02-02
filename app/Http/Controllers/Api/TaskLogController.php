@@ -30,7 +30,15 @@ class TaskLogController extends Controller
             $row['date'] = $payload['date'];
             $row['user_id'] = $request->user()->id;
             $created[] = TaskLog::create($row);
-            // TODO: enqueue LLM classification job per-row or batch
+        }
+
+        // Dispatch classification job for created rows (batch)
+        try {
+            $ids = array_map(fn($r) => $r->id, $created);
+            \App\Jobs\ClassifyTaskLogs::dispatch($ids);
+        } catch (\Throwable $e) {
+            // log and continue — classification is best-effort
+            \Illuminate\Support\Facades\Log::error('Failed to dispatch ClassifyTaskLogs: '.$e->getMessage());
         }
 
         return response()->json(['created' => $created], 201);

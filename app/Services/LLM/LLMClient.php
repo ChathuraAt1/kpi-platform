@@ -78,4 +78,50 @@ class LLMClient
         Log::error('All LLM providers failed: ' . ($lastException?->getMessage() ?? 'no exception'));
         return array_map(fn($l) => ['category' => 'Uncategorized', 'confidence' => 0.0], $logs);
     }
+
+    /**
+     * Ask an LLM provider to score categories for a monthly evaluation. Returns array keyed by category_id => ['score' => float, 'confidence' => float]
+     * If provider scoring fails, return empty array.
+     */
+    public function scoreEvaluation(int $userId, int $year, int $month, array $breakdown): array
+    {
+        $keys = ApiKey::where('status', 'active')->orderBy('priority')->get();
+        if ($keys->isEmpty()) {
+            return [];
+        }
+
+        $lastException = null;
+        foreach ($keys as $apiKey) {
+            try {
+                $providerName = strtolower($apiKey->provider);
+                switch ($providerName) {
+                    case 'openai':
+                        $provider = new OpenAIProvider();
+                        if (method_exists($provider, 'scoreEvaluation')) {
+                            return $provider->scoreEvaluation($userId, $year, $month, $breakdown, $apiKey);
+                        }
+                        break;
+                    case 'gemini':
+                        $provider = new \App\Services\LLM\Providers\GeminiProvider();
+                        if (method_exists($provider, 'scoreEvaluation')) {
+                            return $provider->scoreEvaluation($userId, $year, $month, $breakdown, $apiKey);
+                        }
+                        break;
+                    default:
+                        Log::warning('Provider does not implement scoring: ' . $apiKey->provider);
+                        continue 2;
+                }
+            } catch (\Throwable $e) {
+                $lastException = $e;
+                Log::warning('LLM scoring error with key ' . $apiKey->id . ': ' . $e->getMessage());
+                $apiKey->status = 'degraded';
+                $apiKey->last_checked_at = now();
+                $apiKey->save();
+                continue;
+            }
+        }
+
+        Log::error('All providers failed scoring: ' . ($lastException?->getMessage() ?? 'no exception'));
+        return [];
+    }
 }

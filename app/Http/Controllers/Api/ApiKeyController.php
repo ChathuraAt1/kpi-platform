@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ApiKey;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Artisan;
 use App\Http\Requests\StoreApiKeyRequest;
 use App\Http\Requests\UpdateApiKeyRequest;
 
@@ -55,5 +56,20 @@ class ApiKeyController extends Controller
         $apiKey = ApiKey::findOrFail($id);
         $apiKey->delete();
         return response()->json(['message' => 'Deleted']);
+    }
+
+    public function healthCheckAll(Request $request)
+    {
+        $this->authorize('manageApiKeys');
+
+        $onlyDegraded = $request->query('only_degraded', false);
+        $options = [];
+        if ($onlyDegraded) {
+            $options['--only-degraded'] = true;
+        }
+
+        Artisan::call('apikey:health-check', $options);
+
+        return response()->json(['message' => 'Health check dispatched'], 202);
     }
 }

@@ -19,11 +19,14 @@ class MonthlyEvaluation extends Model
         'status',
         'approved_by',
         'approved_at',
+        'published_by',
+        'published_at',
     ];
 
     protected $casts = [
         'breakdown' => 'array',
         'approved_at' => 'datetime',
+        'published_at' => 'datetime',
     ];
 
     public function user()

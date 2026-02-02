@@ -197,4 +197,75 @@ class OpenAIProvider
         $apiKey->save();
         return false;
     }
+
+    /**
+     * Score evaluation breakdown using the LLM. Returns array keyed by category_id => ['score'=>float,'confidence'=>float]
+     */
+    public function scoreEvaluation(int $userId, int $year, int $month, array $breakdown, ApiKey $apiKey): array
+    {
+        $model = $apiKey->meta['model'] ?? 'gpt-4o-mini';
+        $url = $apiKey->meta['endpoint'] ?? 'https://api.openai.com/v1/chat/completions';
+
+        $system = "You are an objective evaluator. Given the monthly breakdown for an employee, return a JSON object mapping category_id to {\"score\":number (0-10), \"confidence\":number (0-1)}. Respond only with JSON between <<<JSON_START>>> and <<<JSON_END>>>.";
+
+        $examples = [];
+        // create few-shot examples using provided breakdown items
+        foreach (array_slice($breakdown, 0, 2) as $b) {
+            $examples[] = [
+                'input' => "Category: {$b['category_name']}, logged_hours={$b['logged_hours']}, planned_hours={$b['planned_hours']}, rule_score={$b['rule_score']}",
+                'output' => [ (int)$b['category_id'] => ['score' => round($b['rule_score'],2), 'confidence' => 0.9] ],
+            ];
+        }
+
+        $userText = "EmployeeId={$userId} Year={$year} Month={$month}\n";
+        foreach ($breakdown as $b) {
+            $userText .= "CategoryId={$b['category_id']} Name={$b['category_name']} logged_hours={$b['logged_hours']} planned_hours={$b['planned_hours']} rule_score={$b['rule_score']}\n";
+        }
+
+        $messages = [ ['role' => 'system', 'content' => $system] ];
+        foreach ($examples as $ex) {
+            $messages[] = ['role' => 'user', 'content' => $ex['input']];
+            $messages[] = ['role' => 'assistant', 'content' => "<<<JSON_START>>>" . json_encode($ex['output']) . "<<<JSON_END>>>"];
+        }
+        $messages[] = ['role' => 'user', 'content' => $userText];
+
+        $payload = ['model' => $model, 'messages' => $messages, 'temperature' => 0.0, 'max_tokens' => 800];
+
+        $resp = Http::withHeaders([
+            'Authorization' => 'Bearer ' . decrypt($apiKey->encrypted_key),
+            'Accept' => 'application/json',
+        ])->post($url, $payload);
+
+        if ($resp->failed()) {
+            Log::warning('OpenAI scoring failed: ' . $resp->body());
+            throw new \RuntimeException('OpenAI scoring failed');
+        }
+
+        $json = $resp->json();
+        $content = $json['choices'][0]['message']['content'] ?? ($json['choices'][0]['text'] ?? null);
+        if (!$content) return [];
+
+        if (preg_match('/<<<JSON_START>>>(.*)<<<JSON_END>>>/s', $content, $m)) {
+            $candidate = trim($m[1]);
+        } elseif (preg_match('/(\{\s*\"?\d+\"?\s*:\s*\{.*?\}\s*\})/s', $content, $m)) {
+            $candidate = trim($m[1]);
+        } else {
+            $candidate = trim($content);
+        }
+
+        $parsed = @json_decode($candidate, true);
+        if (!is_array($parsed)) return [];
+
+        // normalize: convert keys to ints and ensure score/confidence
+        $out = [];
+        foreach ($parsed as $k => $v) {
+            $id = (int)$k;
+            $out[$id] = [
+                'score' => isset($v['score']) ? (float)$v['score'] : null,
+                'confidence' => isset($v['confidence']) ? (float)$v['confidence'] : 0.0,
+            ];
+        }
+
+        return $out;
+    }
 }

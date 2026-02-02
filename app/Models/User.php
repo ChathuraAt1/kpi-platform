@@ -21,6 +21,12 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'supervisor_id',
+        'work_start_time',
+        'work_end_time',
+        'breaks',
+        'timezone',
     ];
 
     /**
@@ -43,6 +49,25 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'breaks' => 'array',
         ];
+    }
+
+    public function hasRole(string $role): bool
+    {
+        // simple role check: allow if stored as string, or if roles stored as array
+        if (!isset($this->role)) return false;
+        if (is_string($this->role)) {
+            return strtolower($this->role) === strtolower($role);
+        }
+        if (is_array($this->role)) {
+            return in_array(strtolower($role), array_map('strtolower', $this->role));
+        }
+        return false;
+    }
+
+    public function supervisor()
+    {
+        return $this->belongsTo(User::class, 'supervisor_id');
     }
 }

@@ -41,6 +41,34 @@ class HuggingFaceProvider
                 throw new \RuntimeException('HuggingFace classify failed');
             }
 
+            // Attempt to update usage if provider returns usage metadata
+            try {
+                $json = $resp->json();
+                $tokens = null;
+                if (is_array($json)) {
+                    if (isset($json['usage']['total_tokens'])) {
+                        $tokens = (int)$json['usage']['total_tokens'];
+                    } elseif (isset($json['usage']['total_token'])) {
+                        $tokens = (int)$json['usage']['total_token'];
+                    } elseif (isset($json['usage']['tokens'])) {
+                        $tokens = (int)$json['usage']['tokens'];
+                    } elseif (isset($json['estimated_tokens'])) {
+                        $tokens = (int)$json['estimated_tokens'];
+                    } elseif (isset($json['generated_tokens'])) {
+                        $tokens = (int)$json['generated_tokens'];
+                    } elseif (isset($json['meta']['tokens'])) {
+                        $tokens = (int)$json['meta']['tokens'];
+                    }
+                }
+                if ($tokens) {
+                    $apiKey->increment('daily_usage', $tokens);
+                    $apiKey->last_checked_at = now();
+                    $apiKey->save();
+                }
+            } catch (\Throwable $_) {
+                // ignore
+            }
+
             $body = $resp->body();
             return $this->extractJsonResults($body, count($inputs));
         } catch (\Throwable $e) {
@@ -100,5 +128,75 @@ class HuggingFaceProvider
         $apiKey->last_checked_at = now();
         $apiKey->save();
         return false;
+    }
+
+    /**
+     * Score evaluation breakdown using the provider. Returns array keyed by category_id => ['score'=>float,'confidence'=>float]
+     */
+    public function scoreEvaluation(int $userId, int $year, int $month, array $breakdown, ApiKey $apiKey): array
+    {
+        $model = $apiKey->meta['model'] ?? 'bigscience/bloom';
+        $endpoint = $apiKey->meta['endpoint'] ?? ('https://api-inference.huggingface.co/models/' . $model);
+
+        $system = "You are an objective evaluator. Given the monthly breakdown for an employee, return a JSON object mapping category_id to {\"score\":number (0-10), \"confidence\":number (0-1)}. Respond ONLY with JSON between <<<JSON_START>>> and <<<JSON_END>>>.";
+
+        $examples = [];
+        foreach (array_slice($breakdown, 0, 2) as $b) {
+            $examples[] = [
+                'input' => "Category: {$b['category_name']}, logged_hours={$b['logged_hours']}, planned_hours={$b['planned_hours']}, rule_score={$b['rule_score']}",
+                'output' => [(int)$b['category_id'] => ['score' => round($b['rule_score'], 2), 'confidence' => 0.9]],
+            ];
+        }
+
+        $userText = "EmployeeId={$userId} Year={$year} Month={$month}\n";
+        foreach ($breakdown as $b) {
+            $userText .= "CategoryId={$b['category_id']} Name={$b['category_name']} logged_hours={$b['logged_hours']} planned_hours={$b['planned_hours']} rule_score={$b['rule_score']}\n";
+        }
+
+        $prompt = $system . "\n\n";
+        foreach ($examples as $ex) {
+            $prompt .= "User: {$ex['input']}\nAssistant: <<<JSON_START>>>" . json_encode($ex['output']) . "<<<JSON_END>>>\n\n";
+        }
+        $prompt .= "User: {$userText}";
+
+        $payload = ['inputs' => $prompt];
+
+        try {
+            $resp = Http::withHeaders([
+                'Authorization' => 'Bearer ' . decrypt($apiKey->encrypted_key),
+                'Accept' => 'application/json',
+            ])->post($endpoint, $payload);
+
+            if ($resp->failed()) {
+                Log::warning('HuggingFace scoring failed: ' . $resp->body());
+                throw new \RuntimeException('HuggingFace scoring failed');
+            }
+
+            $body = $resp->body();
+            if (preg_match('/<<<JSON_START>>>(.*)<<<JSON_END>>>/s', $body, $m)) {
+                $candidate = trim($m[1]);
+            } elseif (preg_match('/(\{\s*\"?\d+\"?\s*:\s*\{.*?\}\s*\})/s', $body, $m)) {
+                $candidate = trim($m[1]);
+            } else {
+                $candidate = trim($body);
+            }
+
+            $parsed = @json_decode($candidate, true);
+            if (!is_array($parsed)) return [];
+
+            $out = [];
+            foreach ($parsed as $k => $v) {
+                $id = (int)$k;
+                $out[$id] = [
+                    'score' => isset($v['score']) ? (float)$v['score'] : null,
+                    'confidence' => isset($v['confidence']) ? (float)$v['confidence'] : 0.0,
+                ];
+            }
+
+            return $out;
+        } catch (\Throwable $e) {
+            Log::warning('HuggingFace scoring provider error: ' . $e->getMessage());
+            throw $e;
+        }
     }
 }

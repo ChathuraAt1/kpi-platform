@@ -18,6 +18,8 @@ class UpdateApiKeyRequest extends FormRequest
             'priority' => 'nullable|integer',
             'daily_quota' => 'nullable|integer',
             'status' => 'nullable|string',
+            'model' => 'nullable|string',
+            'base_url' => 'nullable|string',
         ];
     }
 }

@@ -7,12 +7,17 @@ use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\TaskLogController;
 use App\Http\Controllers\Api\TodoController;
 use App\Http\Controllers\Api\ApiKeyController;
+use App\Http\Controllers\Api\UserController; // Added this line
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::post('tasks/plan', [TaskController::class, 'storePlan']);
+    Route::get('user/progress', [UserController::class, 'progress']);
+    Route::put('user/profile', [UserController::class, 'updateProfile']);
     Route::apiResource('tasks', TaskController::class);
     Route::apiResource('todos', TodoController::class);
 
     Route::get('task-logs', [TaskLogController::class, 'index']);
+    Route::get('task-logs/daily-template', [TaskLogController::class, 'getDailyTemplate']);
     Route::post('task-logs', [TaskLogController::class, 'store']);
     Route::get('task-logs/{id}', [TaskLogController::class, 'show']);
     Route::post('task-logs/{id}/approve', [TaskLogController::class, 'approve']);
@@ -33,5 +38,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // admin reports
     Route::get('submissions/missing', [\App\Http\Controllers\Api\ReportingController::class, 'missingSubmissions'])->middleware('can:manageUsers');
 
+    Route::get('global-settings', [\App\Http\Controllers\Api\GlobalSettingController::class, 'index']);
+    Route::put('global-settings/{key}', [\App\Http\Controllers\Api\GlobalSettingController::class, 'update']);
+
     // KPI categories management
     Route::apiResource('kpi-categories', \App\Http\Controllers\Api\KpiCategoryController::class);
+});

@@ -19,6 +19,8 @@ class StoreApiKeyRequest extends FormRequest
             'key' => 'required|string',
             'priority' => 'nullable|integer',
             'daily_quota' => 'nullable|integer',
+            'model' => 'nullable|string',
+            'base_url' => 'nullable|string',
         ];
     }
 }

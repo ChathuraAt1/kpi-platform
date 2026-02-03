@@ -11,8 +11,8 @@ class HuggingFaceProvider
     public function classify(array $logs, ApiKey $apiKey): array
     {
         // Hugging Face inference: POST to /models/{model}
-        $model = $apiKey->meta['model'] ?? 'bigscience/bloom';
-        $endpoint = $apiKey->meta['endpoint'] ?? ('https://api-inference.huggingface.co/models/' . $model);
+        $model = $apiKey->model ?? 'bigscience/bloom';
+        $endpoint = $apiKey->base_url ?? ('https://api-inference.huggingface.co/models/' . $model);
 
         $categories = \App\Models\KpiCategory::pluck('name')->toArray();
         $prompt = "Map inputs to one of: " . implode(', ', $categories) . ". Return JSON array between <<<JSON_START>>> and <<<JSON_END>>>.";

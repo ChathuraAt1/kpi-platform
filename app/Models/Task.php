@@ -15,6 +15,7 @@ class Task extends Model
         'parent_id',
         'title',
         'description',
+        'priority',
         'kpi_category_id',
         'planned_hours',
         'status',

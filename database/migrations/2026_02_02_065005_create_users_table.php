@@ -11,6 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // If the table already exists (e.g., running seeds/migrations repeatedly in dev), drop it first
+        if (Schema::hasTable('users')) {
+            Schema::dropIfExists('users');
+        }
+
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');

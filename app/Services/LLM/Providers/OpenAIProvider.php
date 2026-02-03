@@ -9,50 +9,6 @@ use Illuminate\Support\Facades\Log;
 class OpenAIProvider
 {
     /**
-     * Classify logs using OpenAI Chat Completions API.
-     * Returns array of suggestions for each input log.
-     *
-     * @param array $logs Array of TaskLog models or arrays
-     * @param ApiKey $apiKey
-     * @return array<int,array{category:string,confidence:float,raw?:array}>
-     */
-    public function classify(array $logs, ApiKey $apiKey): array
-    {
-        $model = $apiKey->meta['model'] ?? 'gpt-4o-mini';
-        $url = $apiKey->meta['endpoint'] ?? 'https://api.openai.com/v1/chat/completions';
-
-        // build messages: system prompt enumerating categories
-        $categories = \App\Models\KpiCategory::pluck('name')->toArray();
-        $system = "You are a classifier. Map task descriptions to one of these KPI categories: " . implode(', ', $categories) . ". Respond with strict JSON array where each item matches {\"category\":string,\"confidence\":float}.";
-
-        $inputs = [];
-        foreach ($logs as $log) {
-            $desc = is_string($log->description ?? null) ? $log->description : (string)($log['description'] ?? '');
-            $inputs[] = $desc;
-        }
-
-        $messages = [
-            ['role' => 'system', 'content' => $system],
-            ['role' => 'user', 'content' => json_encode(['inputs' => $inputs])]
-        ];
-
-        $payload = [
-            'model' => $model,
-            'messages' => $messages,
-            'temperature' => 0.0,
-            'max_tokens' => 3000,
-        ];
-<?php
-
-namespace App\Services\LLM\Providers;
-
-use App\Models\ApiKey;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-
-class OpenAIProvider
-{
-    /**
      * Classify logs using OpenAI Chat Completions API with robust JSON extraction.
      * Returns array of suggestions for each input log.
      *
@@ -62,8 +18,8 @@ class OpenAIProvider
      */
     public function classify(array $logs, ApiKey $apiKey): array
     {
-        $model = $apiKey->meta['model'] ?? 'gpt-4o-mini';
-        $url = $apiKey->meta['endpoint'] ?? 'https://api.openai.com/v1/chat/completions';
+        $model = $apiKey->model ?? 'gpt-4o-mini';
+        $url = $apiKey->base_url ?? 'https://api.openai.com/v1/chat/completions';
 
         // build system prompt enumerating categories
         $categories = \App\Models\KpiCategory::pluck('name')->toArray();
@@ -203,8 +159,8 @@ class OpenAIProvider
      */
     public function scoreEvaluation(int $userId, int $year, int $month, array $breakdown, ApiKey $apiKey): array
     {
-        $model = $apiKey->meta['model'] ?? 'gpt-4o-mini';
-        $url = $apiKey->meta['endpoint'] ?? 'https://api.openai.com/v1/chat/completions';
+        $model = $apiKey->model ?? 'gpt-4o-mini';
+        $url = $apiKey->base_url ?? 'https://api.openai.com/v1/chat/completions';
 
         $system = "You are an objective evaluator. Given the monthly breakdown for an employee, return a JSON object mapping category_id to {\"score\":number (0-10), \"confidence\":number (0-1)}. Respond only with JSON between <<<JSON_START>>> and <<<JSON_END>>>.";
 

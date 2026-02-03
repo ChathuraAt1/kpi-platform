@@ -13,7 +13,8 @@ class GeminiProvider
      */
     public function classify(array $logs, ApiKey $apiKey): array
     {
-        $endpoint = $apiKey->meta['endpoint'] ?? 'https://gemini.googleapis.com/v1/models/' . ($apiKey->meta['model'] ?? 'gemini-pro');
+        $model = $apiKey->model ?? 'gemini-pro';
+        $endpoint = $apiKey->base_url ?? 'https://gemini.googleapis.com/v1/models/' . $model;
 
         $categories = \App\Models\KpiCategory::pluck('name')->toArray();
         $system = "You are a classifier. Map each input to exactly one of these KPI categories: " . implode(', ', $categories) . ".\n";
@@ -110,7 +111,7 @@ class GeminiProvider
     public function healthCheck(ApiKey $apiKey): bool
     {
         try {
-            $endpoint = $apiKey->meta['endpoint'] ?? 'https://gemini.googleapis.com/v1/models';
+            $endpoint = $apiKey->base_url ?? 'https://gemini.googleapis.com/v1/models';
             $resp = Http::withHeaders([
                 'Authorization' => 'Bearer ' . decrypt($apiKey->encrypted_key),
             ])->get($endpoint);
@@ -135,7 +136,8 @@ class GeminiProvider
      */
     public function scoreEvaluation(int $userId, int $year, int $month, array $breakdown, ApiKey $apiKey): array
     {
-        $endpoint = $apiKey->meta['endpoint'] ?? 'https://gemini.googleapis.com/v1/models/' . ($apiKey->meta['model'] ?? 'gemini-pro') . ':generate';
+        $model = $apiKey->model ?? 'gemini-pro';
+        $endpoint = $apiKey->base_url ?? 'https://gemini.googleapis.com/v1/models/' . $model . ':generate';
 
         $system = "You are an objective evaluator. Given the monthly breakdown for an employee, return a JSON object mapping category_id to {\"score\":number (0-10), \"confidence\":number (0-1)}. Respond ONLY with JSON between <<<JSON_START>>> and <<<JSON_END>>>.";
 

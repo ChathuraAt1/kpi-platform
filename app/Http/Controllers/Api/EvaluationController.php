@@ -27,10 +27,25 @@ class EvaluationController extends Controller
     public function list(Request $request)
     {
         $this->authorize('viewEvaluations');
-        $q = MonthlyEvaluation::query();
+        $q = MonthlyEvaluation::query()->with('user');
+        
         if ($request->has('user_id')) {
             $q->where('user_id', $request->input('user_id'));
         }
+        
+        if ($request->has('status')) {
+            $q->where('status', $request->input('status'));
+            if ($request->input('status') === 'pending' && $request->user()->hasRole('supervisor')) {
+                $subordinateIds = $request->user()->getAllSubordinateIds();
+                $q->whereIn('user_id', $subordinateIds);
+            }
+        }
+        
+        if ($request->has('team_view') && $request->user()->hasRole('supervisor')) {
+            $subordinateIds = $request->user()->getAllSubordinateIds();
+            $q->whereIn('user_id', $subordinateIds);
+        }
+        
         return response()->json($q->latest()->paginate(20));
     }
 

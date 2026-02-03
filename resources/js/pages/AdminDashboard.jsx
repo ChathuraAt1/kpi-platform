@@ -21,8 +21,18 @@ export default function AdminDashboard() {
                     <p className="text-sm text-gray-600">
                         Manage users and roles.
                     </p>
-                    <a className="text-blue-600" href="/users">
+                    <a className="text-blue-600" href="/admin/users">
                         Go to User Management (admin)
+                    </a>
+                </div>
+
+                <div className="bg-white shadow rounded p-4">
+                    <h3 className="font-medium">Company Settings</h3>
+                    <p className="text-sm text-gray-600">
+                        Manage global shift times, break schedules, and deadlines.
+                    </p>
+                    <a className="text-blue-600" href="/admin/settings">
+                        Go to Company Settings (admin)
                     </a>
                 </div>
             </div>

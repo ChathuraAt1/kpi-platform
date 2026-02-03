@@ -30,6 +30,8 @@ class ApiKeyController extends Controller
             'encrypted_key' => Crypt::encryptString($data['key']),
             'priority' => $data['priority'] ?? 10,
             'daily_quota' => $data['daily_quota'] ?? null,
+            'model' => $data['model'] ?? null,
+            'base_url' => $data['base_url'] ?? null,
             'status' => 'active',
         ]);
 

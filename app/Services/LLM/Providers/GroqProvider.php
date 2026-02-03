@@ -10,7 +10,7 @@ class GroqProvider
 {
     public function classify(array $logs, ApiKey $apiKey): array
     {
-        $endpoint = $apiKey->meta['endpoint'] ?? 'https://api.groq.ai/v1/infer';
+        $url = $apiKey->base_url ?? 'https://api.groq.ai/v1/infer';
 
         $categories = \App\Models\KpiCategory::pluck('name')->toArray();
         $prompt = "Map inputs to one of: " . implode(', ', $categories) . ". Return JSON array between markers <<<JSON_START>>> and <<<JSON_END>>>.";
@@ -32,7 +32,7 @@ class GroqProvider
             $resp = Http::withHeaders([
                 'Authorization' => 'Bearer ' . decrypt($apiKey->encrypted_key),
                 'Accept' => 'application/json',
-            ])->post($endpoint, $payload);
+            ])->post($url, $payload);
 
             if ($resp->failed()) {
                 Log::warning('Groq classify failed: ' . $resp->body());
@@ -101,10 +101,10 @@ class GroqProvider
     public function healthCheck(ApiKey $apiKey): bool
     {
         try {
-            $endpoint = $apiKey->meta['endpoint'] ?? 'https://api.groq.ai/v1/models';
+            $url = $apiKey->base_url ?? 'https://api.groq.ai/v1/models';
             $resp = Http::withHeaders([
                 'Authorization' => 'Bearer ' . decrypt($apiKey->encrypted_key),
-            ])->get($endpoint);
+            ])->get($url);
             if ($resp->successful()) {
                 $apiKey->status = 'active';
                 $apiKey->last_checked_at = now();

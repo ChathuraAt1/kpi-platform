@@ -49,18 +49,24 @@ class EvaluationService
                 $grouped[$catId]['task_ids'][] = $log->task->id;
                 $grouped[$catId]['planned_hours'] += (float)($log->task->planned_hours ?? 0);
             }
-            // look into metadata for completion percent
-            $cp = $log->metadata['completion_percent'] ?? $log->metadata['completion'] ?? null;
-            if ($cp !== null) {
-                $grouped[$catId]['completion_percents'][] = (float)$cp;
-            }
+            // look into priority and metadata for completion percent
+            $priority = $log->priority ?? $log->metadata['priority'] ?? 'medium';
+            $weight = $log->user->getPriorityWeight($priority);
+            $duration = (float)$log->duration_hours;
+            $cp = $log->metadata['completion_percent'] ?? $log->metadata['completion'] ?? 100;
+            
+            $grouped[$catId]['weighted_completion_sum'] = ($grouped[$catId]['weighted_completion_sum'] ?? 0) + ($cp * $duration * $weight);
+            $grouped[$catId]['weight_factor_sum'] = ($grouped[$catId]['weight_factor_sum'] ?? 0) + ($duration * $weight);
+            $grouped[$catId]['completion_percents'][] = (float)$cp;
         }
 
         // compute rule-based scores per category (0-10)
         $breakdown = [];
         foreach ($grouped as $catId => $info) {
             $avgCompletion = null;
-            if (count($info['completion_percents']) > 0) {
+            if (isset($info['weight_factor_sum']) && $info['weight_factor_sum'] > 0) {
+                $avgCompletion = $info['weighted_completion_sum'] / $info['weight_factor_sum'];
+            } elseif (count($info['completion_percents']) > 0) {
                 $avgCompletion = array_sum($info['completion_percents']) / count($info['completion_percents']);
             }
 

@@ -40,6 +40,72 @@ class TaskController extends Controller
         return response()->json($task);
     }
 
+    public function storePlan(Request $request)
+    {
+        $data = $request->validate([
+            'date' => 'required|date',
+            'tasks' => 'required|array',
+            'tasks.*.title' => 'required|string',
+            'tasks.*.priority' => 'nullable|in:low,medium,high',
+            'tasks.*.due_date' => 'nullable|date',
+            'tasks.*.assigned_by' => 'nullable|string',
+        ]);
+
+        $created = [];
+        foreach ($data['tasks'] as $row) {
+            $task = Task::create([
+                'owner_id' => $request->user()->id,
+                'title' => $row['title'],
+                'priority' => $row['priority'] ?? 'medium',
+                'due_date' => $row['due_date'] ?? $data['date'],
+                'status' => 'open',
+                'planned_hours' => 0, // No specific time planned
+                'metadata' => [
+                    'assigned_by' => $row['assigned_by'] ?? 'Self',
+                    'plan_date' => $data['date']
+                ]
+            ]);
+            $created[] = $task;
+        }
+
+        return response()->json($created, 201);
+    }
+
+    public function getPlan(Request $request)
+    {
+        $date = $request->query('date', now()->format('Y-m-d'));
+        $userId = $request->user()->id;
+
+        // Tasks planned for this date OR rollover tasks
+        $tasks = Task::with('kpiCategory')
+            ->where('owner_id', $userId)
+            ->where(function($q) use ($date) {
+                $q->whereDate('due_date', $date)
+                  ->orWhere('metadata->plan_date', $date)
+                  // Rollover: unfinished tasks from the past
+                  ->orWhere(function($sq) use ($date) {
+                      $sq->whereIn('status', ['open', 'inprogress'])
+                         ->where(function($ssq) use ($date) {
+                             $ssq->whereDate('due_date', '<', $date)
+                                 ->orWhere('metadata->plan_date', '<', $date)
+                                 ->orWhereDate('created_at', '<', $date);
+                         });
+                  });
+            })
+            ->get();
+            
+        return response()->json($tasks);
+    }
+
+    private function calculateDuration($start, $end) {
+        if (!$start || !$end) return 0;
+        try {
+            $s = \Carbon\Carbon::parse($start);
+            $e = \Carbon\Carbon::parse($end);
+            return max(0, $e->diffInMinutes($s) / 60);
+        } catch (\Exception $e) { return 0; }
+    }
+
     public function destroy($id)
     {
         $task = Task::findOrFail($id);

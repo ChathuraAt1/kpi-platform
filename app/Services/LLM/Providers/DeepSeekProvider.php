@@ -10,10 +10,10 @@ class DeepSeekProvider
 {
     public function classify(array $logs, ApiKey $apiKey): array
     {
-        $endpoint = $apiKey->meta['endpoint'] ?? 'https://api.deepseek.ai/v1/classify';
+        $url = $apiKey->base_url ?? 'https://api.deepseek.ai/v1/classify';
 
         $categories = \App\Models\KpiCategory::pluck('name')->toArray();
-        $prompt = "Map inputs to one of: " . implode(', ', $categories) . ". Return JSON array between <<<JSON_START>>> and <<<JSON_END>>>.";
+        $prompt = "Map inputs to one of: " . implode(', ', $categories) . ". Return JSON array between markers <<<JSON_START>>> and <<<JSON_END>>>.";
 
         $inputs = array_map(fn($l) => is_string($l->description ?? null) ? $l->description : ($l['description'] ?? ''), $logs);
 
@@ -32,7 +32,7 @@ class DeepSeekProvider
             $resp = Http::withHeaders([
                 'Authorization' => 'Bearer ' . decrypt($apiKey->encrypted_key),
                 'Accept' => 'application/json',
-            ])->post($endpoint, $payload);
+            ])->post($url, $payload);
 
             if ($resp->failed()) {
                 Log::warning('DeepSeek classify failed: ' . $resp->body());

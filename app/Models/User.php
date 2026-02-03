@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\TaskLog;
+
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -69,5 +71,65 @@ class User extends Authenticatable
     public function supervisor()
     {
         return $this->belongsTo(User::class, 'supervisor_id');
+    }
+
+    public function subordinates()
+    {
+        return $this->hasMany(User::class, 'supervisor_id');
+    }
+
+    /**
+     * Calculate productivity for a given date based on weighted priority.
+     * High = 3, Medium = 2, Low = 1
+     */
+    public function calculateDailyProductivity(string $date): float
+    {
+        $logs = TaskLog::where('user_id', $this->id)
+            ->whereDate('date', $date)
+            ->get();
+
+        if ($logs->isEmpty()) return 0.0;
+
+        $totalWeightedCompletion = 0.0;
+        $totalWeightFactor = 0.0;
+
+        foreach ($logs as $log) {
+            $weight = $this->getPriorityWeight($log->metadata['priority'] ?? 'medium');
+            $completion = $log->metadata['completion_percent'] ?? 100;
+            $duration = (float) $log->duration_hours;
+
+            $totalWeightedCompletion += ($completion * $duration * $weight);
+            $totalWeightFactor += ($duration * $weight);
+        }
+
+        return $totalWeightFactor > 0 ? round($totalWeightedCompletion / $totalWeightFactor, 2) : 0.0;
+    }
+
+    public function getAllSubordinateIds(): array
+    {
+        $ids = $this->subordinates()->pluck('id')->toArray();
+        foreach ($this->subordinates as $sub) {
+            $ids = array_merge($ids, $sub->getAllSubordinateIds());
+        }
+        return array_unique($ids);
+    }
+
+    public function isSupervisorOf(User $user): bool
+    {
+        if ($this->id === $user->supervisor_id) return true;
+        foreach ($this->subordinates as $sub) {
+            if ($sub->isSupervisorOf($user)) return true;
+        }
+        return false;
+    }
+
+    private function getPriorityWeight(string $priority): int
+    {
+        return match (strtolower($priority)) {
+            'high' => 3,
+            'medium' => 2,
+            'low' => 1,
+            default => 2,
+        };
     }
 }

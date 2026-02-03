@@ -46,7 +46,7 @@ class UserController extends Controller
         foreach ($tasks as $t) {
             $taskMap[$t->id] = [
                 'task' => $t,
-                'planned_hours' => $t->estimated_hours ?? null,
+                'planned_hours' => $t->planned_hours ?? null,
                 'logged_hours' => 0,
                 'completion' => 0,
             ];
@@ -69,5 +69,22 @@ class UserController extends Controller
         }
 
         return response()->json(['date' => $date, 'tasks' => array_values($taskMap), 'logs' => $logs]);
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+        
+        $data = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'work_start_time' => 'nullable|string',
+            'work_end_time' => 'nullable|string',
+            'timezone' => 'nullable|string',
+            'breaks' => 'nullable|array',
+        ]);
+
+        $user->update($data);
+
+        return response()->json($user);
     }
 }

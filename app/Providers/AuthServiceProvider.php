@@ -25,30 +25,37 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerPolicies();
-
+        
         Gate::define('manageApiKeys', function ($user) {
-            return method_exists($user, 'hasRole') ? $user->hasRole('admin') : true;
+            if (($user->role ?? '') === 'admin' || ($user->role ?? '') === 'it_admin') return true;
+            return method_exists($user, 'hasRole') ? ($user->hasRole('admin') || $user->hasRole('it_admin')) : false;
         });
 
         Gate::define('manageUsers', function ($user) {
-            return method_exists($user, 'hasRole') ? ($user->hasRole('admin') || $user->hasRole('management')) : true;
+             if (($user->role ?? '') === 'admin' || ($user->role ?? '') === 'hr') return true;
+            return method_exists($user, 'hasRole') ? ($user->hasRole('admin') || $user->hasRole('hr')) : false;
         });
 
         // Evaluation-related gates
         Gate::define('manageEvaluations', function ($user) {
-            return method_exists($user, 'hasRole') ? ($user->hasRole('admin') || $user->hasRole('hr')) : true;
+             if (($user->role ?? '') === 'admin' || ($user->role ?? '') === 'hr') return true;
+            return method_exists($user, 'hasRole') ? ($user->hasRole('admin') || $user->hasRole('hr')) : false;
         });
 
         Gate::define('viewEvaluations', function ($user) {
-            return true; // allow by default; restrict further in production
+            // Employees view their own, supervisors view team, HR/Admin view all.
+            // This gate controls access to the LIST endpoint generally.
+            return true;
         });
 
         Gate::define('approveEvaluations', function ($user) {
-            return method_exists($user, 'hasRole') ? ($user->hasRole('manager') || $user->hasRole('hr') || $user->hasRole('admin')) : true;
+             if (($user->role ?? '') === 'supervisor' || ($user->role ?? '') === 'admin') return true;
+            return method_exists($user, 'hasRole') ? ($user->hasRole('supervisor') || $user->hasRole('admin')) : false;
         });
 
         Gate::define('publishEvaluations', function ($user) {
-            return method_exists($user, 'hasRole') ? $user->hasRole('hr') : true;
+             if (($user->role ?? '') === 'hr' || ($user->role ?? '') === 'admin') return true;
+            return method_exists($user, 'hasRole') ? ($user->hasRole('hr') || $user->hasRole('admin')) : false;
         });
     }
 }

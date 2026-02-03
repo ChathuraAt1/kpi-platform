@@ -13,7 +13,14 @@ import UsersPage from "./pages/UsersPage";
 import Login from "./pages/Login";
 import TodosPage from "./pages/TodosPage";
 import ProfilePage from "./pages/ProfilePage";
+import MyPerformance from "./pages/MyPerformance";
 import CompanySettingsPage from "./pages/CompanySettingsPage";
+import JobRoleManagement from "./pages/JobRoleManagement";
+import SubordinateDetails from "./pages/SubordinateDetails";
+import EvaluationCenter from "./pages/EvaluationCenter";
+import SystemDashboard from "./pages/SystemDashboard";
+import TaskLogExplorer from "./pages/TaskLogExplorer";
+import HierarchyManagement from "./pages/HierarchyManagement";
 import { ToastProvider } from "./contexts/ToastContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -52,7 +59,14 @@ function App() {
                                     </ProtectedRoute>
                                 }
                             />
-
+                            <Route
+                                path="/performance"
+                                element={
+                                    <ProtectedRoute>
+                                        <MyPerformance />
+                                    </ProtectedRoute>
+                                }
+                            />
                             <Route
                                 path="/supervisor"
                                 element={
@@ -63,10 +77,43 @@ function App() {
                             />
 
                             <Route
+                                path="/supervisor/subordinate/:id"
+                                element={
+                                    <ProtectedRoute roles={["supervisor"]}>
+                                        <SubordinateDetails />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/supervisor/logs"
+                                element={
+                                    <ProtectedRoute roles={["supervisor"]}>
+                                        <TaskLogExplorer />
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/hr/logs"
+                                element={
+                                    <ProtectedRoute roles={["hr"]}>
+                                        <TaskLogExplorer />
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/admin/logs"
+                                element={
+                                    <ProtectedRoute roles={["it_admin", "admin"]}>
+                                        <TaskLogExplorer />
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
                                 path="/hr"
                                 element={
                                     <ProtectedRoute roles={["hr"]}>
-                                        <HRDashboard />
+                                        <EvaluationCenter />
                                     </ProtectedRoute>
                                 }
                             />
@@ -74,8 +121,8 @@ function App() {
                             <Route
                                 path="/admin"
                                 element={
-                                    <ProtectedRoute roles={["admin"]}>
-                                        <AdminDashboard />
+                                    <ProtectedRoute roles={["admin", "it_admin"]}>
+                                        <SystemDashboard />
                                     </ProtectedRoute>
                                 }
                             />
@@ -83,7 +130,7 @@ function App() {
                             <Route
                                 path="/admin/api-keys"
                                 element={
-                                    <ProtectedRoute roles={["admin"]}>
+                                    <ProtectedRoute roles={["admin", "it_admin"]}>
                                         <ApiKeysPage />
                                     </ProtectedRoute>
                                 }
@@ -92,7 +139,7 @@ function App() {
                             <Route
                                 path="/admin/users"
                                 element={
-                                    <ProtectedRoute roles={["admin"]}>
+                                    <ProtectedRoute roles={["admin", "it_admin"]}>
                                         <UsersPage />
                                     </ProtectedRoute>
                                 }
@@ -101,8 +148,25 @@ function App() {
                             <Route
                                 path="/admin/settings"
                                 element={
-                                    <ProtectedRoute roles={["admin"]}>
+                                    <ProtectedRoute roles={["admin", "it_admin"]}>
                                         <CompanySettingsPage />
+                                    </ProtectedRoute>
+                                }
+                            />
+
+                            <Route
+                                path="/hr/roles"
+                                element={
+                                    <ProtectedRoute roles={["hr", "admin"]}>
+                                        <JobRoleManagement />
+                                    </ProtectedRoute>
+                                }
+                            />
+                            <Route
+                                path="/admin/hierarchy"
+                                element={
+                                    <ProtectedRoute roles={["hr", "admin", "it_admin"]}>
+                                        <HierarchyManagement />
                                     </ProtectedRoute>
                                 }
                             />
@@ -110,7 +174,7 @@ function App() {
                     </Layout>
                 </BrowserRouter>
             </AuthProvider>
-        </ToastProvider>
+        </ToastProvider >
     );
 }
 

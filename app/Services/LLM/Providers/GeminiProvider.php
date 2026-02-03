@@ -134,12 +134,18 @@ class GeminiProvider
     /**
      * Score evaluation breakdown using the provider. Returns array keyed by category_id => ['score'=>float,'confidence'=>float]
      */
-    public function scoreEvaluation(int $userId, int $year, int $month, array $breakdown, ApiKey $apiKey): array
+    public function scoreEvaluation(int $userId, int $year, int $month, array $breakdown, ApiKey $apiKey, array $context = []): array
     {
         $model = $apiKey->model ?? 'gemini-pro';
         $endpoint = $apiKey->base_url ?? 'https://gemini.googleapis.com/v1/models/' . $model . ':generate';
 
         $system = "You are an objective evaluator. Given the monthly breakdown for an employee, return a JSON object mapping category_id to {\"score\":number (0-10), \"confidence\":number (0-1)}. Respond ONLY with JSON between <<<JSON_START>>> and <<<JSON_END>>>.";
+        if (isset($context['job_role'])) {
+            $system .= "\nCONTEXT: The employee has the job role '{$context['job_role']['name']}'. Description: {$context['job_role']['description']}.";
+            if (!empty($context['job_role']['suggested_kpis'])) {
+                $system .= " Expected KPIs: " . implode(', ', (array)$context['job_role']['suggested_kpis']);
+            }
+        }
 
         $examples = [];
         foreach (array_slice($breakdown, 0, 2) as $b) {

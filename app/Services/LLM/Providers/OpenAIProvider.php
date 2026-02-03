@@ -155,11 +155,11 @@ class OpenAIProvider
     }
 
     /**
-     * Score evaluation breakdown using the LLM. Returns array keyed by category_id => ['score'=>float,'confidence'=>float]
+     * Score evaluation breakdown using OpenAI.
      */
     public function scoreEvaluation(int $userId, int $year, int $month, array $breakdown, ApiKey $apiKey): array
     {
-        $model = $apiKey->model ?? 'gpt-4o-mini';
+        $model = $apiKey->model ?? 'gpt-4o';
         $url = $apiKey->base_url ?? 'https://api.openai.com/v1/chat/completions';
 
         $system = "You are an objective evaluator. Given the monthly breakdown for an employee, return a JSON object mapping category_id to {\"score\":number (0-10), \"confidence\":number (0-1)}. Respond only with JSON between <<<JSON_START>>> and <<<JSON_END>>>.";

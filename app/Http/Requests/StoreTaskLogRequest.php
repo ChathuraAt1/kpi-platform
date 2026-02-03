@@ -21,6 +21,7 @@ class StoreTaskLogRequest extends FormRequest
             'rows.*.start_time' => 'nullable|date_format:H:i',
             'rows.*.end_time' => 'nullable|date_format:H:i',
             'rows.*.description' => 'nullable|string',
+            'rows.*.completion_percent' => 'nullable|numeric|min:0|max:100',
             'rows.*.kpi_category_id' => 'nullable|exists:kpi_categories,id',
         ];
     }

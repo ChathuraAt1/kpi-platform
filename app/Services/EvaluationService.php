@@ -33,7 +33,7 @@ class EvaluationService
         $categories = KpiCategory::all()->keyBy('id');
         $grouped = [];
         foreach ($logs as $log) {
-            $catId = $log->kpi_category_id ?? 0;
+            $catId = $log->kpi_category_id ?? ($log->task?->kpi_category_id ?? 0);
             if (!isset($grouped[$catId])) {
                 $grouped[$catId] = [
                     'category_id' => $catId,
@@ -61,8 +61,18 @@ class EvaluationService
         }
 
         // compute rule-based scores per category (0-10)
+        $user = \App\Models\User::with('jobRole.kpiCategories')->findOrFail($userId);
+        $role = $user->jobRole;
+        $categoryWeights = [];
+        if ($role) {
+            foreach ($role->kpiCategories as $cat) {
+                $categoryWeights[$cat->id] = $cat->pivot->weight;
+            }
+        }
+
         $breakdown = [];
         foreach ($grouped as $catId => $info) {
+            // ... (existing scoring logic)
             $avgCompletion = null;
             if (isset($info['weight_factor_sum']) && $info['weight_factor_sum'] > 0) {
                 $avgCompletion = $info['weighted_completion_sum'] / $info['weight_factor_sum'];
@@ -76,7 +86,6 @@ class EvaluationService
                 $ratio = min(1.0, $info['logged_hours'] / max(0.0001, $info['planned_hours']));
                 $ruleScore = round($ratio * 10.0, 2);
             } else {
-                // fallback based on hours logged: assume 8h/day * 20 working days ~= 160h; scale
                 $ratio = min(1.0, $info['logged_hours'] / 160.0);
                 $ruleScore = round($ratio * 10.0, 2);
             }
@@ -87,13 +96,22 @@ class EvaluationService
                 'logged_hours' => $info['logged_hours'],
                 'planned_hours' => $info['planned_hours'],
                 'rule_score' => $ruleScore,
+                'weight' => $categoryWeights[$catId] ?? 10,
             ];
         }
 
-        // Call LLM to get scores per category (token-optimized payload)
+        // Call LLM to get scores per category (token-optimized payload with context)
         $llmScores = [];
         try {
-            $llmScores = $this->llm->scoreEvaluation($userId, $year, $month, $breakdown);
+            $context = [];
+            if ($role) {
+                $context['job_role'] = [
+                    'name' => $role->name,
+                    'description' => $role->description,
+                    'suggested_kpis' => $role->suggested_kpis,
+                ];
+            }
+            $llmScores = $this->llm->scoreEvaluation($userId, $year, $month, $breakdown, $context);
         } catch (\Throwable $e) {
             Log::warning('LLM scoring failed for user ' . $userId . ': ' . $e->getMessage());
         }
@@ -124,7 +142,7 @@ class EvaluationService
             'month' => $month,
             'score' => null,
             'breakdown' => $finalBreakdown,
-            'generated_by' => null,
+            'generated_by' => 'system',
             'status' => 'pending',
         ]);
 

@@ -10,6 +10,9 @@ use App\Http\Controllers\Api\ApiKeyController;
 use App\Http\Controllers\Api\UserController; // Added this line
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/user', [App\Http\Controllers\Api\AuthController::class, 'me']);
+    Route::get('tasks/plan', [TaskController::class, 'getPlan']);
+    Route::get('tasks/plan-status', [TaskController::class, 'getPlanStatus']);
     Route::post('tasks/plan', [TaskController::class, 'storePlan']);
     Route::get('user/progress', [UserController::class, 'progress']);
     Route::put('user/profile', [UserController::class, 'updateProfile']);
@@ -33,7 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // user management
     Route::get('users', [\App\Http\Controllers\Api\UserController::class, 'index'])->middleware('can:manageUsers');
     Route::patch('users/{id}', [\App\Http\Controllers\Api\UserController::class, 'update'])->middleware('can:manageUsers');
-    Route::get('users/{id}/progress', [\App\Http\Controllers\Api\UserController::class, 'progress'])->middleware('auth:sanctum');
+    Route::get('users/{id}/progress', [\App\Http\Controllers\Api\UserController::class, 'progress'])->middleware('auth');
 
     // admin reports
     Route::get('submissions/missing', [\App\Http\Controllers\Api\ReportingController::class, 'missingSubmissions'])->middleware('can:manageUsers');
@@ -43,4 +46,5 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // KPI categories management
     Route::apiResource('kpi-categories', \App\Http\Controllers\Api\KpiCategoryController::class);
+    Route::apiResource('job-roles', \App\Http\Controllers\Api\JobRoleController::class);
 });

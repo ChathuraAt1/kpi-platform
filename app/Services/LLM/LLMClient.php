@@ -83,7 +83,7 @@ class LLMClient
      * Ask an LLM provider to score categories for a monthly evaluation. Returns array keyed by category_id => ['score' => float, 'confidence' => float]
      * If provider scoring fails, return empty array.
      */
-    public function scoreEvaluation(int $userId, int $year, int $month, array $breakdown): array
+    public function scoreEvaluation(int $userId, int $year, int $month, array $breakdown, array $context = []): array
     {
         $keys = ApiKey::where('status', 'active')->orderBy('priority')->get();
         if ($keys->isEmpty()) {
@@ -98,13 +98,13 @@ class LLMClient
                     case 'openai':
                         $provider = new OpenAIProvider();
                         if (method_exists($provider, 'scoreEvaluation')) {
-                            return $provider->scoreEvaluation($userId, $year, $month, $breakdown, $apiKey);
+                            return $provider->scoreEvaluation($userId, $year, $month, $breakdown, $apiKey, $context);
                         }
                         break;
                     case 'gemini':
                         $provider = new \App\Services\LLM\Providers\GeminiProvider();
                         if (method_exists($provider, 'scoreEvaluation')) {
-                            return $provider->scoreEvaluation($userId, $year, $month, $breakdown, $apiKey);
+                            return $provider->scoreEvaluation($userId, $year, $month, $breakdown, $apiKey, $context);
                         }
                         break;
                     default:

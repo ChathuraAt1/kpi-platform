@@ -22,6 +22,8 @@ return new class extends Migration
             $table->string('status')->default('draft');
             $table->foreignId('approved_by')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamp('approved_at')->nullable();
+            $table->foreignId('published_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->timestamp('published_at')->nullable();
             $table->timestamps();
             $table->unique(['user_id', 'year', 'month']);
         });

@@ -40,7 +40,9 @@ class EvaluationControllerTest extends TestCase
     public function test_list_returns_paginated_evaluations()
     {
         $user = User::factory()->create();
-        MonthlyEvaluation::factory()->count(3)->create(['user_id' => $user->id]);
+        MonthlyEvaluation::factory()->create(['user_id' => $user->id, 'year' => 2026, 'month' => 1]);
+        MonthlyEvaluation::factory()->create(['user_id' => $user->id, 'year' => 2026, 'month' => 2]);
+        MonthlyEvaluation::factory()->create(['user_id' => $user->id, 'year' => 2026, 'month' => 3]);
 
         $this->actingAs($user, 'sanctum');
         $resp = $this->getJson('/api/evaluations');

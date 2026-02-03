@@ -47,14 +47,14 @@ export default function Login() {
         setError(null);
         try {
             await login(email, password);
-            if (hasRole("admin")) return navigate("/admin");
+            if (hasRole("admin") || hasRole("it_admin")) return navigate("/admin");
             if (hasRole("hr")) return navigate("/hr");
             if (hasRole("supervisor")) return navigate("/supervisor");
             navigate("/");
         } catch (err) {
             setError(
                 err.response?.data?.message ||
-                    "Failed to login - check credentials",
+                "Failed to login - check credentials",
             );
         } finally {
             setLoading(false);
@@ -68,7 +68,7 @@ export default function Login() {
         >
             <h2 className="text-xl font-semibold mb-4">Login</h2>
 
-            <div aria-live="polite" className="min-h-[1.25rem]">
+            <div aria-live="polite" className="min-h-5">
                 {error && <div className="text-red-600 mb-3">{error}</div>}
             </div>
 
@@ -80,9 +80,8 @@ export default function Login() {
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className={`mt-1 block w-full border rounded px-3 py-2 ${
-                            emailError ? "border-red-400" : "border-gray-300"
-                        }`}
+                        className={`mt-1 block w-full border rounded px-3 py-2 ${emailError ? "border-red-400" : "border-gray-300"
+                            }`}
                         aria-invalid={!!emailError}
                         aria-describedby={
                             emailError ? "email-error" : undefined
@@ -105,9 +104,8 @@ export default function Login() {
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className={`mt-1 block w-full border rounded px-3 py-2 ${
-                            passwordError ? "border-red-400" : "border-gray-300"
-                        }`}
+                        className={`mt-1 block w-full border rounded px-3 py-2 ${passwordError ? "border-red-400" : "border-gray-300"
+                            }`}
                         aria-invalid={!!passwordError}
                         aria-describedby={
                             passwordError ? "password-error" : undefined
@@ -127,11 +125,10 @@ export default function Login() {
                 <div className="flex items-center justify-between">
                     <button
                         type="submit"
-                        className={`inline-flex items-center px-4 py-2 rounded text-white ${
-                            isValid && !loading
-                                ? "bg-blue-600 hover:bg-blue-700"
-                                : "bg-blue-300 cursor-not-allowed"
-                        }`}
+                        className={`inline-flex items-center px-4 py-2 rounded text-white ${isValid && !loading
+                            ? "bg-blue-600 hover:bg-blue-700"
+                            : "bg-blue-300 cursor-not-allowed"
+                            }`}
                         disabled={!isValid || loading}
                         aria-disabled={!isValid || loading}
                     >

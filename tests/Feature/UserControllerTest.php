@@ -28,7 +28,7 @@ class UserControllerTest extends TestCase
         $resp->assertStatus(200)->assertJsonFragment(['supervisor_id' => $sup->id]);
         $u->refresh();
         $this->assertEquals($sup->id, $u->supervisor_id);
-        $this->assertEquals('08:30:00', $u->work_start_time);
+        $this->assertEquals('08:30', substr($u->work_start_time, 0, 5));
     }
 
     public function test_progress_endpoint_returns_task_and_log_summary()

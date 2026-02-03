@@ -12,11 +12,16 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $this->authorize('manageUsers');
-        $q = User::query()->with('supervisor');
+        $q = User::query()->with('supervisor', 'jobRole');
         if ($request->has('role')) {
             $q->where('role', $request->query('role'));
         }
-        return response()->json($q->paginate(25));
+        
+        if ($request->has('all')) {
+            return response()->json($q->get());
+        }
+        
+        return response()->json($q->paginate(100));
     }
 
     public function update(UpdateUserRequest $request, $id)

@@ -17,8 +17,8 @@ class MonthlyEvaluationFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'year' => now()->year,
-            'month' => now()->month,
+            'year' => fake()->year(),
+            'month' => fake()->numberBetween(1, 12),
             'score' => fake()->randomFloat(2, 0, 10),
             'breakdown' => null,
             'generated_by' => 'system',

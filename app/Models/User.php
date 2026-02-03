@@ -24,6 +24,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'job_role_id',
         'supervisor_id',
         'work_start_time',
         'work_end_time',
@@ -71,6 +72,11 @@ class User extends Authenticatable
     public function supervisor()
     {
         return $this->belongsTo(User::class, 'supervisor_id');
+    }
+
+    public function jobRole()
+    {
+        return $this->belongsTo(JobRole::class);
     }
 
     public function subordinates()
@@ -123,7 +129,7 @@ class User extends Authenticatable
         return false;
     }
 
-    private function getPriorityWeight(string $priority): int
+    public function getPriorityWeight(string $priority): int
     {
         return match (strtolower($priority)) {
             'high' => 3,

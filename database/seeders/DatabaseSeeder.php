@@ -9,117 +9,153 @@ use App\Models\Task;
 use App\Models\TaskLog;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
-        // Clear existing small demo data (optional - uncomment if desired)
-        // \DB::table('task_logs')->truncate();
-        // \DB::table('tasks')->truncate();
-        // \DB::table('kpi_categories')->truncate();
-        // \DB::table('api_keys')->truncate();
-        // \DB::table('monthly_evaluations')->truncate();
+        // 1. Clean up (Be careful in production, but good for dev)
+        // DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        // User::truncate();
+        // Task::truncate();
+        // TaskLog::truncate();
+        // MonthlyEvaluation::truncate();
+        // DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        // Users: admin, hr, supervisor, employees
-        $admin = User::factory()->create([
-            'name' => 'Admin User',
-            'email' => 'admin@example.com',
-            'role' => 'admin',
-        ]);
+        // 2. Roles & Users
+        $password = Hash::make('password'); // Default password for everyone
 
-        $hr = User::factory()->create([
-            'name' => 'HR User',
-            'email' => 'hr@example.com',
-            'role' => 'hr',
-        ]);
+        // Global Admin
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@kpi.com'],
+            ['name' => 'Global Admin', 'role' => 'admin', 'password' => $password]
+        );
 
-        $supervisor = User::factory()->create([
-            'name' => 'Team Lead',
-            'email' => 'lead@example.com',
-            'role' => 'supervisor',
-        ]);
+        // IT Admin (manages API keys)
+        $itAdmin = User::firstOrCreate(
+            ['email' => 'it@kpi.com'],
+            ['name' => 'IT Administrator', 'role' => 'it_admin', 'password' => $password]
+        );
 
-        $employees = User::factory()->count(6)->create()->each(function ($u) use ($supervisor) {
-            $u->role = 'employee';
-            $u->supervisor_id = $supervisor->id;
-            $u->save();
-        });
+        // HR Manager (manages evaluations)
+        $hr = User::firstOrCreate(
+            ['email' => 'hr@kpi.com'],
+            ['name' => 'HR Manager', 'role' => 'hr', 'password' => $password]
+        );
 
-        // KPI categories
+        // Supervisor
+        $supervisor = User::firstOrCreate(
+            ['email' => 'supervisor@kpi.com'],
+            ['name' => 'Team Supervisor', 'role' => 'supervisor', 'password' => $password]
+        );
+
+        // Employees (Team A)
+        $employees = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $employees[] = User::firstOrCreate(
+                ['email' => "employee{$i}@kpi.com"],
+                [
+                    'name' => "Employee {$i}",
+                    'role' => 'employee',
+                    'supervisor_id' => $supervisor->id,
+                    'password' => $password,
+                    'work_start_time' => '08:30',
+                    'work_end_time' => '17:30',
+                ]
+            );
+        }
+
+        $this->command->info('Users seeded: Admin, IT, HR, Supervisor, 5 Employees.');
+
+        // 3. KPI Categories
         $categories = collect([
-            ['name' => 'Productivity', 'description' => 'Hours and output', 'weight' => 0.4, 'unit' => 'hours'],
-            ['name' => 'Quality', 'description' => 'Defect rate and reviews', 'weight' => 0.35, 'unit' => 'score'],
-            ['name' => 'Collaboration', 'description' => 'Peer feedback and teamwork', 'weight' => 0.25, 'unit' => 'score'],
+            ['name' => 'Deep Work', 'description' => 'High-focus development and research', 'weight' => 0.5, 'unit' => 'hours'],
+            ['name' => 'Collaboration', 'description' => 'Meetings, code reviews, mentoring', 'weight' => 0.3, 'unit' => 'hours'],
+            ['name' => 'Learning', 'description' => 'Training, reading documentation', 'weight' => 0.2, 'unit' => 'hours'],
         ])->map(function ($c) {
-            return KpiCategory::create($c);
+            return KpiCategory::firstOrCreate(['name' => $c['name']], $c);
         });
 
-        // Tasks and TaskLogs
+        // 4. Tasks & Logs (Past 10 days)
         foreach ($employees as $emp) {
-            // create 3 tasks per employee
+            // Create ongoing tasks
             $tasks = [];
-            for ($i = 1; $i <= 3; $i++) {
-                $category = $categories->random();
-                $task = Task::create([
+            for ($k = 1; $k <= 3; $k++) {
+                $tasks[] = Task::create([
                     'owner_id' => $emp->id,
                     'assignee_id' => $emp->id,
-                    'title' => "Task {$i} for {$emp->name}",
-                    'description' => "Work item {$i} for demo",
-                    'kpi_category_id' => $category->id,
-                    'planned_hours' => rand(1, 8),
-                    'status' => 'open',
+                    'title' => "Project Module {$k}",
+                    'description' => "Implementation of feature {$k}",
+                    'kpi_category_id' => $categories->random()->id,
+                    'planned_hours' => rand(10, 40),
+                    'priority' => ['low', 'medium', 'high'][rand(0, 2)],
+                    'status' => 'inprogress',
+                    'due_date' => Carbon::now()->addDays(rand(1, 10)),
                 ]);
-                $tasks[] = $task;
             }
 
-            // create task logs for the last 14 days
-            for ($d = 0; $d < 14; $d++) {
+            // Create logs
+            for ($d = 0; $d < 7; $d++) { // Last 7 days
                 $date = Carbon::now()->subDays($d)->toDateString();
-                // random number of logs per day
-                $count = rand(0, 2);
-                for ($j = 0; $j < $count; $j++) {
-                    $task = $tasks[array_rand($tasks)];
-                    $duration = rand(30, 240) / 60; // 0.5 to 4 hours
-                    $start = Carbon::parse("09:00")->addMinutes(rand(0, 480));
+                if (Carbon::parse($date)->isSunday()) continue; // Skip Sundays
+
+                foreach ($tasks as $task) {
+                    if (rand(0, 1) === 0) continue; // Randomly skip tasks
+
+                    $hours = rand(1, 4);
                     TaskLog::create([
                         'task_id' => $task->id,
                         'user_id' => $emp->id,
                         'date' => $date,
-                        'duration_hours' => $duration,
-                        'start_time' => $start->toTimeString(),
-                        'end_time' => $start->copy()->addMinutes((int)($duration * 60))->toTimeString(),
-                        'description' => 'Worked on ' . $task->title,
+                        'duration_hours' => $hours,
+                        'description' => "Worked on {$task->title}",
                         'kpi_category_id' => $task->kpi_category_id,
-                        'status' => 'submitted',
+                        'status' => $d === 0 ? 'pending' : 'approved', // Today pending, past approved
+                        'metadata' => ['priority' => $task->priority, 'completion_percent' => rand(10, 100)]
                     ]);
                 }
             }
         }
+        $this->command->info('Tasks and Logs seeded.');
 
-        // API key (local/mock) for admin
-        ApiKey::create([
-            'user_id' => $admin->id,
-            'provider' => 'local',
-            'name' => 'Local dev key',
-            'encrypted_key' => 'mock-key',
-            'priority' => 1,
-            'daily_quota' => 1000,
-            'daily_usage' => 0,
-            'status' => 'active',
-        ]);
+        // 5. API Keys (for IT Admin)
+        ApiKey::firstOrCreate(
+            ['encrypted_key' => 'mock-gemini-key'],
+            [
+                'user_id' => $itAdmin->id,
+                'provider' => 'gemini',
+                'name' => 'Primary Gemini Key',
+                'encrypted_key' => 'mock-gemini-key',
+                'priority' => 10,
+                'daily_quota' => 10000,
+                'status' => 'active',
+                'model' => 'gemini-pro',
+            ]
+        );
 
-        // Monthly evaluations for a sample employee
-        $sample = $employees->first();
-        MonthlyEvaluation::factory()->count(3)->create(['user_id' => $sample->id]);
-
-        $this->command->info('Seeded demo data: users, kpis, tasks, logs, api key, evaluations.');
+        // 6. Evaluations (Pending for HR)
+        $pastMonth = Carbon::now()->subMonth();
+        foreach ($employees as $emp) {
+             // Create a dummy evaluation
+             MonthlyEvaluation::create([
+                 'user_id' => $emp->id,
+                 'year' => $pastMonth->year,
+                 'month' => $pastMonth->month,
+                 'status' => rand(0, 1) ? 'pending' : 'approved',
+                 'score' => rand(7, 9) + (rand(0, 9) / 10),
+                 'breakdown' => [
+                     1 => ['category_name' => 'Deep Work', 'rule_score' => 8.5, 'llm_score' => 8.0, 'supervisor_score' => null],
+                     2 => ['category_name' => 'Collaboration', 'rule_score' => 9.0, 'llm_score' => 8.8, 'supervisor_score' => null],
+                 ]
+             ]);
+        }
+        
+        $this->command->info('Database seeding completed successfully.');
     }
 }

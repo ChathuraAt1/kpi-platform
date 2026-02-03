@@ -11,9 +11,11 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
+use Illuminate\Foundation\Bus\Dispatchable;
+
 class ClassifyTaskLogs implements ShouldQueue
 {
-    use InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public array $taskLogIds;
 
@@ -33,6 +35,11 @@ class ClassifyTaskLogs implements ShouldQueue
     {
         $logs = TaskLog::whereIn('id', $this->taskLogIds)->get();
         foreach ($logs as $log) {
+            // Skip non-task logs (breaks, shift ends)
+            if (($log->metadata['type'] ?? 'task') !== 'task') {
+                continue;
+            }
+
             try {
                 // 1) Run a cheap rule-based classifier first
                 $suggestion = RuleBasedClassifier::classify($log->description ?? '');

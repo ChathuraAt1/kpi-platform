@@ -212,6 +212,7 @@ class TaskLogController extends Controller
         $payload = $request->validated();
         $created = [];
         $userId = $request->user()->id;
+        $submissionType = $request->input('submission_type', 'evening_log'); // morning_plan or evening_log
 
         foreach ($payload['rows'] as $row) {
             $taskId = $row['task_id'] ?? null;
@@ -287,10 +288,37 @@ class TaskLogController extends Controller
                     $log->update($logData);
                     $created[] = $log;
                 } else {
-                    $created[] = TaskLog::create($logData);
+                    $log = TaskLog::create($logData);
+                    $log->markAsSubmitted($submissionType);
+                    $log->save();
+                    $created[] = $log;
                 }
             } else {
-                $created[] = TaskLog::create($logData);
+                $log = TaskLog::create($logData);
+                $log->markAsSubmitted($submissionType);
+                $log->save();
+                $created[] = $log;
+            }
+        }
+
+        // Log audit trail for late submissions
+        $lateCount = 0;
+        foreach ($created as $log) {
+            if ($log->is_late) {
+                $lateCount++;
+                \App\Models\AuditLog::create([
+                    'user_id' => $userId,
+                    'action' => 'task_log.submitted_late',
+                    'auditable_type' => TaskLog::class,
+                    'auditable_id' => $log->id,
+                    'old_values' => [],
+                    'new_values' => [
+                        'minutes_late' => $log->submission_metadata['minutes_late'] ?? 0,
+                        'deadline' => $log->submission_metadata['deadline'] ?? null,
+                        'submission_type' => $submissionType,
+                    ],
+                    'ip_address' => $request->ip(),
+                ]);
             }
         }
 
@@ -304,7 +332,52 @@ class TaskLogController extends Controller
             \Illuminate\Support\Facades\Log::error('Failed to dispatch ClassifyTaskLogs: ' . $e->getMessage());
         }
 
-        return response()->json(['created' => $created], 201);
+        return response()->json([
+            'status' => 'submitted',
+            'submission_type' => $submissionType,
+            'count' => count($created),
+            'late_count' => $lateCount,
+            'created' => $created
+        ], 201);
+    }
+
+    /**
+     * Get submission status for today (evening log)
+     * Returns deadline info and whether user has submitted
+     */
+    public function submissionStatus(Request $request)
+    {
+        $user = $request->user();
+        $today = now()->toDateString();
+        
+        // Check if user has submitted evening log today
+        $hasEveningSubmission = TaskLog::where('user_id', $user->id)
+            ->whereDate('date', $today)
+            ->where('submission_type', 'evening_log')
+            ->whereNotNull('submitted_at')
+            ->exists();
+        
+        $hasNorningSubmission = TaskLog::where('user_id', $user->id)
+            ->whereDate('date', $today)
+            ->where('submission_type', 'morning_plan')
+            ->whereNotNull('submitted_at')
+            ->exists();
+        
+        $deadline = now()->copy()->setHour(23)->setMinute(0)->setSecond(0);
+        $minutesRemaining = max(0, (int)$deadline->diffInMinutes(now(), false));
+        $isDeadlineApproaching = $minutesRemaining > 0 && $minutesRemaining < 60;
+        $isPastDeadline = $minutesRemaining < 0;
+        
+        return response()->json([
+            'date' => $today,
+            'has_morning_submission' => $hasNorningSubmission,
+            'has_evening_submission' => $hasEveningSubmission,
+            'deadline' => $deadline->toIso8601String(),
+            'minutes_remaining' => max(-999999, $minutesRemaining), // Cap negatives
+            'is_approaching_deadline' => $isDeadlineApproaching,
+            'is_past_deadline' => $isPastDeadline,
+            'current_time' => now()->toIso8601String(),
+        ]);
     }
 
     public function show($id)

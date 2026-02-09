@@ -25,6 +25,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('task-logs', [TaskLogController::class, 'index']);
     Route::get('task-logs/daily-template', [TaskLogController::class, 'getDailyTemplate']);
+    Route::get('task-logs/status/submission', [TaskLogController::class, 'submissionStatus']);
     Route::post('task-logs', [TaskLogController::class, 'store']);
     Route::get('task-logs/{id}', [TaskLogController::class, 'show']);
     // Deprecated: per-task approve/reject workflow removed — supervisors no longer approve individual logs
@@ -44,6 +45,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // admin reports
     Route::get('submissions/missing', [\App\Http\Controllers\Api\ReportingController::class, 'missingSubmissions'])->middleware('can:manageUsers');
+    Route::get('submissions/trend', [\App\Http\Controllers\Api\ReportingController::class, 'submissionTrend'])->middleware('can:manageUsers');
 
     Route::get('global-settings', [\App\Http\Controllers\Api\GlobalSettingController::class, 'index']);
     Route::put('global-settings/{key}', [\App\Http\Controllers\Api\GlobalSettingController::class, 'update']);

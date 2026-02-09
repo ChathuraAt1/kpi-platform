@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import TaskLogGrid from "../components/TaskLogGrid";
 import MorningPlan from "../components/MorningPlan";
+import DeadlineTimer from "../components/DeadlineTimer";
 import { useAuth } from "../contexts/AuthContext";
 import { getTrustedTime } from "../utils/timeSync";
 import { useTheme } from "../contexts/ThemeContext";
@@ -116,6 +117,11 @@ export default function EmployeeDashboard() {
                     ></div>
                 </div>
             </header>
+
+            {/* Deadline Timer - Critical for submission enforcement */}
+            <div className="animate-in fade-in slide-in-from-top duration-500 delay-100">
+                <DeadlineTimer refreshInterval={30000} />
+            </div>
 
             {/* Dashboard Workspace */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">

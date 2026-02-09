@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Jobs\GenerateMonthlyEvaluations;
 use App\Models\MonthlyEvaluation;
+use App\Models\EvaluationComment;
 use App\Models\AuditLog;
 use Illuminate\Support\Facades\Request as FacadeRequest;
 
@@ -340,4 +341,403 @@ class EvaluationController extends Controller
             ]
         ], 201);
     }
+
+    /**
+     * Save HR score for an evaluation
+     * 
+     * Endpoint: POST /api/evaluations/{id}/save-hr-score
+     * Body: {score (0-100), remarks (optional)}
+     * Permission: HR role only
+     */
+    public function saveHrScore(Request $request, MonthlyEvaluation $evaluation)
+    {
+        // Check authorization: only HR can add HR scores
+        if (!$request->user()->hasRole('hr')) {
+            return response()->json(['error' => 'Only HR personnel can add HR scores'], 403);
+        }
+
+        $data = $request->validate([
+            'score' => 'required|numeric|min:0|max:100',
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        // Store old values for audit
+        $old = [
+            'hr_score' => $evaluation->hr_score,
+            'hr_remarks' => $evaluation->hr_remarks,
+        ];
+
+        // Set HR score and recalculate final score
+        $evaluation->setHrScore((float)$data['score'], $data['remarks'] ?? null, $request->user());
+        $evaluation->save();
+
+        // Create audit log
+        try {
+            AuditLog::create([
+                'user_id' => $request->user()->id,
+                'action' => 'evaluation.hr_score_added',
+                'auditable_type' => MonthlyEvaluation::class,
+                'auditable_id' => $evaluation->id,
+                'old_values' => $old,
+                'new_values' => [
+                    'hr_score' => $evaluation->hr_score,
+                    'final_score' => $evaluation->score,
+                    'score_components' => $evaluation->score_components,
+                ],
+                'ip_address' => $request->ip(),
+            ]);
+        } catch (\Throwable $_) {
+            // ignore
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'evaluation' => [
+                'id' => $evaluation->id,
+                'hr_score' => $evaluation->hr_score,
+                'hr_remarks' => $evaluation->hr_remarks,
+                'final_score' => $evaluation->score,
+                'score_status' => $evaluation->getScoreStatus(),
+                'score_components' => $evaluation->getScoreComponents(),
+            ],
+        ]);
+    }
+
+    /**
+     * Save Supervisor score for an evaluation
+     * 
+     * Endpoint: POST /api/evaluations/{id}/save-supervisor-score
+     * Body: {score (0-100), remarks (optional)}
+     * Permission: Supervisor/Manager role or user's own supervisor
+     */
+    public function saveSupervisorScore(Request $request, MonthlyEvaluation $evaluation)
+    {
+        // Check authorization: supervisor can only score if they're the evaluated user's supervisor
+        if (!$request->user()->hasRole('supervisor') && !$request->user()->hasRole('manager')) {
+            return response()->json(['error' => 'Only supervisors can add supervisor scores'], 403);
+        }
+
+        // Additional check: supervisor can only score their own subordinates
+        if (!$request->user()->hasRole(['admin', 'hr']) && !in_array($evaluation->user_id, $request->user()->getAllSubordinateIds())) {
+            return response()->json(['error' => 'You can only score your own team members'], 403);
+        }
+
+        $data = $request->validate([
+            'score' => 'required|numeric|min:0|max:100',
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        // Store old values for audit
+        $old = [
+            'supervisor_score' => $evaluation->supervisor_score,
+            'supervisor_remarks' => $evaluation->supervisor_remarks,
+        ];
+
+        // Set Supervisor score and recalculate final score
+        $evaluation->setSupervisorScore((float)$data['score'], $data['remarks'] ?? null, $request->user());
+        $evaluation->save();
+
+        // Create audit log
+        try {
+            AuditLog::create([
+                'user_id' => $request->user()->id,
+                'action' => 'evaluation.supervisor_score_added',
+                'auditable_type' => MonthlyEvaluation::class,
+                'auditable_id' => $evaluation->id,
+                'old_values' => $old,
+                'new_values' => [
+                    'supervisor_score' => $evaluation->supervisor_score,
+                    'final_score' => $evaluation->score,
+                    'score_components' => $evaluation->score_components,
+                ],
+                'ip_address' => $request->ip(),
+            ]);
+        } catch (\Throwable $_) {
+            // ignore
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'evaluation' => [
+                'id' => $evaluation->id,
+                'supervisor_score' => $evaluation->supervisor_score,
+                'supervisor_remarks' => $evaluation->supervisor_remarks,
+                'final_score' => $evaluation->score,
+                'score_status' => $evaluation->getScoreStatus(),
+                'score_components' => $evaluation->getScoreComponents(),
+            ],
+        ]);
+    }
+
+    /**
+     * Get evaluation with score status and history
+     * Includes all scores, remarks, and scoring timeline
+     * 
+     * Endpoint: GET /api/evaluations/{id}/with-scores
+     */
+    public function getEvaluationWithScores(Request $request, MonthlyEvaluation $evaluation)
+    {
+        // Authorization check
+        if (
+            $evaluation->user_id !== $request->user()->id &&
+            !in_array($evaluation->user_id, $request->user()->getAllSubordinateIds()) &&
+            !$request->user()->hasRole(['admin', 'hr'])
+        ) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        return response()->json([
+            'id' => $evaluation->id,
+            'user' => [
+                'id' => $evaluation->user->id,
+                'name' => $evaluation->user->name,
+                'role' => $evaluation->user->role,
+            ],
+            'period' => [
+                'year' => $evaluation->year,
+                'month' => $evaluation->month,
+            ],
+            'scores' => [
+                'rule_based' => $evaluation->rule_based_score,
+                'llm' => $evaluation->llm_based_score,
+                'hr' => $evaluation->hr_score,
+                'supervisor' => $evaluation->supervisor_score,
+                'final' => $evaluation->score,
+            ],
+            'remarks' => [
+                'hr' => $evaluation->hr_remarks,
+                'supervisor' => $evaluation->supervisor_remarks,
+            ],
+            'score_status' => $evaluation->getScoreStatus(),
+            'score_components' => $evaluation->getScoreComponents(),
+            'scoring_timeline' => [
+                'rule_based_at' => $evaluation->created_at,
+                'hr_scored_at' => $evaluation->hr_scored_at,
+                'supervisor_scored_at' => $evaluation->supervisor_scored_at,
+                'finalized_at' => $evaluation->finalized_at,
+            ],
+            'status' => $evaluation->status,
+            'is_finalized' => $evaluation->is_finalized,
+            'ready_to_finalize' => $evaluation->isReadyToFinalize(),
+        ]);
+    }
+
+    /**
+     * Add a comment/remark to an evaluation
+     * 
+     * Endpoint: POST /api/evaluations/{id}/comments
+     * Body: {content, mentions (optional array of user_ids)}
+     * Permission: HR, Supervisor, or Admin only
+     */
+    public function addComment(Request $request, MonthlyEvaluation $evaluation)
+    {
+        // Authorization: HR, Supervisor, or Admin can comment
+        if (!$request->user()->hasRole(['hr', 'supervisor', 'admin'])) {
+            return response()->json(['error' => 'Only HR and supervisors can add comments'], 403);
+        }
+
+        // If supervisor, can only comment on own team members
+        if ($request->user()->hasRole('supervisor') && !in_array($evaluation->user_id, $request->user()->getAllSubordinateIds())) {
+            return response()->json(['error' => 'You can only comment on your team members'], 403);
+        }
+
+        $data = $request->validate([
+            'content' => 'required|string|max:2000',
+            'mentions' => 'nullable|array',
+            'mentions.*' => 'integer|exists:users,id',
+        ]);
+
+        // Create the comment
+        $comment = EvaluationComment::addComment(
+            $evaluation,
+            $request->user(),
+            $data['content'],
+            'remark',
+            $data['mentions'] ?? null
+        );
+
+        // Create audit log
+        try {
+            AuditLog::create([
+                'user_id' => $request->user()->id,
+                'action' => 'evaluation.comment_added',
+                'auditable_type' => EvaluationComment::class,
+                'auditable_id' => $comment->id,
+                'old_values' => [],
+                'new_values' => [
+                    'evaluation_id' => $evaluation->id,
+                    'content' => substr($data['content'], 0, 100),
+                ],
+                'ip_address' => $request->ip(),
+            ]);
+        } catch (\Throwable $_) {
+            // ignore
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'comment' => [
+                'id' => $comment->id,
+                'user_id' => $comment->user_id,
+                'user_name' => $comment->user->name,
+                'user_role' => $comment->user->role,
+                'content' => $comment->content,
+                'created_at' => $comment->created_at,
+                'mentions' => $comment->mentions,
+            ],
+        ], 201);
+    }
+
+    /**
+     * Get all comments/remarks for an evaluation
+     * 
+     * Endpoint: GET /api/evaluations/{id}/comments
+     * Query params: type (optional: 'remark', 'mention', 'status_change')
+     */
+    public function getComments(Request $request, MonthlyEvaluation $evaluation)
+    {
+        // Authorization check
+        if (
+            $evaluation->user_id !== $request->user()->id &&
+            !in_array($evaluation->user_id, $request->user()->getAllSubordinateIds() ?? []) &&
+            !$request->user()->hasRole(['admin', 'hr'])
+        ) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $comments = $evaluation->comments()
+            ->with('user:id,name,role')
+            ->latest()
+            ->get();
+
+        // Optional filter by type
+        if ($request->has('type')) {
+            $comments = $comments->filter(fn($c) => $c->type === $request->query('type'));
+        }
+
+        $formattedComments = $comments->map(fn($comment) => [
+            'id' => $comment->id,
+            'user_id' => $comment->user_id,
+            'user_name' => $comment->user->name,
+            'user_role' => $comment->user->role,
+            'content' => $comment->content,
+            'type' => $comment->type,
+            'created_at' => $comment->created_at,
+            'updated_at' => $comment->updated_at,
+            'mentions' => $comment->mentions,
+        ]);
+
+        return response()->json([
+            'evaluation_id' => $evaluation->id,
+            'total_comments' => $formattedComments->count(),
+            'comments' => $formattedComments->values(),
+        ]);
+    }
+
+    /**
+     * Delete a comment from an evaluation
+     * 
+     * Endpoint: DELETE /api/evaluations/{evaluationId}/comments/{commentId}
+     * Permission: Comment author or HR/Admin only
+     */
+    public function deleteComment(Request $request, MonthlyEvaluation $evaluation, EvaluationComment $comment)
+    {
+        // Verify comment belongs to this evaluation
+        if ($comment->evaluation_id !== $evaluation->id) {
+            return response()->json(['error' => 'Comment not found on this evaluation'], 404);
+        }
+
+        // Authorization: only comment author or HR/Admin can delete
+        if (
+            $comment->user_id !== $request->user()->id &&
+            !$request->user()->hasRole(['admin', 'hr'])
+        ) {
+            return response()->json(['error' => 'You can only delete your own comments'], 403);
+        }
+
+        // Create audit log before deletion
+        try {
+            AuditLog::create([
+                'user_id' => $request->user()->id,
+                'action' => 'evaluation.comment_deleted',
+                'auditable_type' => EvaluationComment::class,
+                'auditable_id' => $comment->id,
+                'old_values' => [
+                    'content' => substr($comment->content, 0, 100),
+                ],
+                'new_values' => [],
+                'ip_address' => $request->ip(),
+            ]);
+        } catch (\Throwable $_) {
+            // ignore
+        }
+
+        $comment->delete();
+
+        return response()->json(['status' => 'comment deleted']);
+    }
+
+    /**
+     * Get evaluation with full comments history
+     * 
+     * Endpoint: GET /api/evaluations/{id}/full-history
+     */
+    public function getFullHistory(Request $request, MonthlyEvaluation $evaluation)
+    {
+        // Authorization check
+        if (
+            $evaluation->user_id !== $request->user()->id &&
+            !in_array($evaluation->user_id, $request->user()->getAllSubordinateIds() ?? []) &&
+            !$request->user()->hasRole(['admin', 'hr'])
+        ) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $comments = $evaluation->comments()
+            ->with('user:id,name,role')
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'evaluation' => [
+                'id' => $evaluation->id,
+                'user_id' => $evaluation->user_id,
+                'user_name' => $evaluation->user->name,
+                'year' => $evaluation->year,
+                'month' => $evaluation->month,
+                'scores' => [
+                    'rule_based' => $evaluation->rule_based_score,
+                    'llm' => $evaluation->llm_based_score,
+                    'hr' => $evaluation->hr_score,
+                    'supervisor' => $evaluation->supervisor_score,
+                    'final' => $evaluation->score,
+                ],
+                'status' => $evaluation->status,
+            ],
+            'remarks' => [
+                'hr_remarks' => $evaluation->hr_remarks,
+                'supervisor_remarks' => $evaluation->supervisor_remarks,
+            ],
+            'comments' => $comments->map(fn($comment) => [
+                'id' => $comment->id,
+                'user' => [
+                    'id' => $comment->user->id,
+                    'name' => $comment->user->name,
+                    'role' => $comment->user->role,
+                ],
+                'content' => $comment->content,
+                'type' => $comment->type,
+                'created_at' => $comment->created_at,
+                'updated_at' => $comment->updated_at,
+            ])->values(),
+            'timeline' => [
+                'created_at' => $evaluation->created_at,
+                'hr_scored_at' => $evaluation->hr_scored_at,
+                'supervisor_scored_at' => $evaluation->supervisor_scored_at,
+                'finalized_at' => $evaluation->finalized_at,
+                'published_at' => $evaluation->published_at,
+            ],
+        ]);
+    }
 }
+

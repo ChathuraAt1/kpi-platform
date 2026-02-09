@@ -31,6 +31,9 @@ class TaskLog extends Model
         'break_hours_deducted',
         'expected_work_hours',
         'time_gaps',
+        'breaks_used',
+        'actual_break_duration',
+        'time_in_work',
     ];
 
     protected $casts = [
@@ -45,6 +48,9 @@ class TaskLog extends Model
         'break_hours_deducted' => 'decimal:2',
         'expected_work_hours' => 'decimal:2',
         'time_gaps' => 'array',
+        'breaks_used' => 'array',
+        'actual_break_duration' => 'decimal:2',
+        'time_in_work' => 'decimal:2',
     ];
 
     public function task()
@@ -75,7 +81,7 @@ class TaskLog extends Model
     {
         $now = now();
         $deadline = $this->getSubmissionDeadline();
-        
+
         $this->submitted_at = $now;
         $this->submission_type = $submissionType;
         $this->is_late = $now->isAfter($deadline);
@@ -85,7 +91,7 @@ class TaskLog extends Model
             'minutes_late' => $this->is_late ? (int)$now->diffInMinutes($deadline) : 0,
             'submission_type' => $submissionType,
         ];
-        
+
         return $this;
     }
 

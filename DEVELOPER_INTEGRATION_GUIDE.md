@@ -3,6 +3,7 @@
 ## Quick Start for Developers
 
 ### 1. Apply the Migration
+
 ```bash
 php artisan migrate
 ```
@@ -16,6 +17,7 @@ This adds 8 columns to `task_logs` table and creates 2 indexes.
 **Location:** `app/Models/TaskLog.php`
 
 **Core Method - Mark as Submitted:**
+
 ```php
 // Automatically determine if late and set all deadline fields
 $log->markAsSubmitted('evening_log')->save();
@@ -26,12 +28,14 @@ $log->markAsSubmitted('evening_log')->save();
 ```
 
 **What it does:**
+
 1. Sets `submitted_at` to current timestamp
 2. Calculates `is_late` flag (compares against 11 PM deadline)
 3. Stores deadline metadata (deadline time, minutes late, etc)
 4. Sets `submission_type` for tracking
 
 **Query Scopes (Helpers):**
+
 ```php
 // Find late submissions
 TaskLog::late()->get();
@@ -55,6 +59,7 @@ TaskLog::submitted()->get();
 **Location:** `app/Http/Controllers/Api/TaskLogController.php` line ~210
 
 **What to know:**
+
 ```php
 // Input now includes submission_type
 $submissionType = $request->input('submission_type', 'evening_log');
@@ -64,7 +69,7 @@ foreach ($payload['rows'] as $row) {
     $log = TaskLog::create($logData);
     $log->markAsSubmitted($submissionType);  // ← IMPORTANT
     $log->save();
-    
+
     // Audit trail for compliance
     if ($log->is_late) {
         AuditLog::create([
@@ -95,18 +100,18 @@ return response()->json([
 ```php
 public function submissionStatus(Request $request) {
     $user = $request->user();
-    
+
     // Check if already submitted today
     $hasEveningSubmission = TaskLog::where('user_id', $user->id)
         ->whereDate('date', now())
         ->where('submission_type', 'evening_log')
         ->whereNotNull('submitted_at')
         ->exists();
-    
+
     // Calculate deadline and time remaining
     $deadline = now()->copy()->setHour(23)->setMinute(0)->setSecond(0);
     $minutesRemaining = max(0, (int)$deadline->diffInMinutes(now(), false));
-    
+
     return response()->json([
         'date' => now()->toDateString(),
         'has_evening_submission' => $hasEveningSubmission,
@@ -133,18 +138,18 @@ public function submissionStatus(Request $request) {
 public function missingSubmissions(Request $request) {
     $date = $request->query('date', now()->toDateString());
     $deadline = Carbon::parse($date)->setHour(23)->setMinute(0)->setSecond(0);
-    
+
     // Three separate arrays for filtering
     $submitted = [];  // Submitted on time
     $late = [];       // Submitted after deadline
     $missing = [];    // No submission
-    
+
     foreach ($employees as $emp) {
         $submission = TaskLog::where('user_id', $emp->id)
             ->whereDate('date', $date)
             ->where('submission_type', 'evening_log')
             ->first();
-        
+
         if (!$submission) {
             $missing[] = [...]; // Employee info
         } elseif ($submission->is_late) {
@@ -153,7 +158,7 @@ public function missingSubmissions(Request $request) {
             $submitted[] = [...]; // On-time info
         }
     }
-    
+
     return response()->json([
         'date' => $date,
         'total_employees' => count($employees),
@@ -176,11 +181,13 @@ public function missingSubmissions(Request $request) {
 ### 4. Frontend Integration Points
 
 #### Component 1: DeadlineTimer
+
 **Location:** `resources/js/components/DeadlineTimer.jsx`
 
 **Usage:**
+
 ```jsx
-import DeadlineTimer from '../components/DeadlineTimer';
+import DeadlineTimer from "../components/DeadlineTimer";
 
 export default function Dashboard() {
     return (
@@ -194,15 +201,18 @@ export default function Dashboard() {
 ```
 
 **Props:**
+
 - `refreshInterval` (optional, default 30000ms): How often to check deadline
 
 **What it shows:**
+
 - ✅ "Submission complete" if already submitted today
 - 🔴 RED URGENT if < 1 hour remaining
 - 🔴 RED OVERDUE if past deadline
 - 🟠 Orange warning if 1-4 hours remaining
 
 **Behind the scenes:**
+
 - Calls `/api/task-logs/status/submission` every 30 seconds
 - Uses Axios for HTTP
 - State management with useState hook
@@ -210,11 +220,13 @@ export default function Dashboard() {
 ---
 
 #### Component 2: MissingSubmissions
+
 **Location:** `resources/js/components/MissingSubmissions.jsx`
 
 **Usage in Admin Dashboard:**
+
 ```jsx
-import MissingSubmissions from '../components/MissingSubmissions';
+import MissingSubmissions from "../components/MissingSubmissions";
 
 export default function AdminDashboard() {
     return (
@@ -228,14 +240,16 @@ export default function AdminDashboard() {
 ```
 
 **Features:**
+
 - Date input to view any day's status
 - Four stat cards showing counts
 - Three filtered tables:
-  - Green: Submitted on time
-  - Orange: Late submissions (with minutes late highlighted)
-  - Red: Missing submissions (with supervisor info)
+    - Green: Submitted on time
+    - Orange: Late submissions (with minutes late highlighted)
+    - Red: Missing submissions (with supervisor info)
 
 **Behind the scenes:**
+
 - Calls `/api/submissions/missing?date=...` on mount and date change
 - Uses Axios for HTTP
 - Pagination-ready table structure
@@ -245,6 +259,7 @@ export default function AdminDashboard() {
 ### 5. API Response Flow
 
 #### Submit Task Logs (POST)
+
 ```
 Client sends:
 POST /api/task-logs
@@ -272,6 +287,7 @@ Client receives:
 ```
 
 #### Check Status (GET)
+
 ```
 Client requests:
 GET /api/task-logs/status/submission
@@ -296,6 +312,7 @@ Countdown timer with appropriate warning level
 ```
 
 #### Admin Report (GET)
+
 ```
 Admin requests:
 GET /api/submissions/missing?date=2026-02-09
@@ -328,6 +345,7 @@ Admin can:
 ### 6. Common Integration Scenarios
 
 #### Scenario 1: New Employee Joining
+
 ```php
 // In onboarding flow, new employee will automatically:
 // - Have TaskLog records created when task submitted
@@ -337,6 +355,7 @@ Admin can:
 ```
 
 #### Scenario 2: Changing Deadline Time
+
 **Currently hardcoded to 11 PM.** To make it configurable:
 
 ```php
@@ -350,7 +369,7 @@ public function getSubmissionDeadline() {
         ->value('value') ?? 23;
     $minute = GlobalSetting::where('key', 'evening_submission_deadline_minute')
         ->value('value') ?? 0;
-    
+
     return $this->date->copy()
         ->setHour($hour)
         ->setMinute($minute)
@@ -359,6 +378,7 @@ public function getSubmissionDeadline() {
 ```
 
 #### Scenario 3: Bulk Audit of Late Submissions
+
 ```php
 // Get all late submissions for a month
 $lateSubmissions = TaskLog::where('is_late', true)
@@ -374,6 +394,7 @@ foreach ($lateSubmissions as $log) {
 ```
 
 #### Scenario 4: Dashboard Widget for Manager
+
 ```php
 // Show team's submission status
 $team = User::where('supervisor_id', auth()->id())
@@ -403,31 +424,39 @@ foreach ($team as $employee) {
 ### 7. Debugging Tips
 
 #### Issue: `is_late` always false
+
 **Cause:** `markAsSubmitted()` not being called before save  
 **Fix:** Ensure store() method calls:
+
 ```php
 $log->markAsSubmitted($submissionType);
 $log->save();
 ```
 
 #### Issue: Deadline timer shows wrong time
+
 **Cause:** Server timezone mismatch  
 **Fix:** Check `.env` file:
+
 ```env
 APP_TIMEZONE=Asia/Colombo  # or your timezone
 ```
 
 #### Issue: Admin report shows wrong counts
+
 **Cause:** Caching or stale query data  
 **Fix:** Clear cache and refresh:
+
 ```bash
 php artisan cache:clear
 # Then reload /api/submissions/missing
 ```
 
 #### Issue: Audit logs not created for late submissions
+
 **Cause:** `AuditLog::create()` not called or user not authenticated  
 **Fix:** Check TaskLogController store() has audit logging:
+
 ```php
 if ($log->is_late) {  // ← Check this condition
     AuditLog::create([...]);
@@ -439,6 +468,7 @@ if ($log->is_late) {  // ← Check this condition
 ### 8. Performance Notes
 
 **Query Optimization:**
+
 ```php
 // ❌ SLOW: Loads all columns + relations
 TaskLog::where('is_late', true)->get();
@@ -451,6 +481,7 @@ TaskLog::where('is_late', true)
 ```
 
 **Caching Strategy:**
+
 ```php
 // Cache submission summary for 5 minutes
 $summary = Cache::remember("submissions.{$date}", 300, function () use ($date) {
@@ -463,6 +494,7 @@ $summary = Cache::remember("submissions.{$date}", 300, function () use ($date) {
 ```
 
 **Frontend Performance:**
+
 - DeadlineTimer: Refreshes every 30 seconds (not continuous)
 - MissingSubmissions: Single API call per date selection
 - No unnecessary re-renders or polling
@@ -472,38 +504,40 @@ $summary = Cache::remember("submissions.{$date}", 300, function () use ($date) {
 ### 9. Testing Code Examples
 
 #### Unit Test: Task Log Submission
+
 ```php
 public function test_task_log_marked_late_if_submitted_after_deadline() {
     $user = User::factory()->employee()->create();
-    
+
     // Mock time to 23:30 (30 minutes after deadline)
     Carbon::setTestNow(now()->setHour(23)->setMinute(30));
-    
+
     $log = TaskLog::factory()->create(['user_id' => $user->id]);
     $log->markAsSubmitted('evening_log');
-    
+
     $this->assertTrue($log->is_late);
     $this->assertEquals(30, $log->submission_metadata['minutes_late']);
 }
 ```
 
 #### Feature Test: Submission API
+
 ```php
 public function test_submit_task_logs_endpoint() {
     $user = User::factory()->employee()->create();
     $this->actingAs($user);
-    
+
     $response = $this->postJson('/api/task-logs', [
         'date' => now()->toDateString(),
         'submission_type' => 'evening_log',
         'rows' => [...]
     ]);
-    
+
     $response->assertStatus(201);
     $response->assertJsonStructure([
         'status', 'submission_type', 'count', 'late_count', 'created'
     ]);
-    
+
     $this->assertDatabaseHas('task_logs', [
         'user_id' => $user->id,
         'submitted_at' => now(),
@@ -538,6 +572,7 @@ $schedule->job(SendSubmissionReminders::class)->dailyAt('22:00');
 ```
 
 **Phase 0 - Item 3 (Time Validation):**
+
 ```php
 // Add to TaskLog model:
 public function validateTimeGaps(): array {
@@ -553,6 +588,7 @@ public function validateTimeGaps(): array {
 ## Summary
 
 **What's Integrated:**
+
 - ✅ 8-column database schema for deadline tracking
 - ✅ TaskLog model with deadline logic
 - ✅ 3 new API endpoints (submissionStatus, missingSubmissions, submissionTrend)
@@ -561,12 +597,13 @@ public function validateTimeGaps(): array {
 - ✅ Authorization gates for admin endpoints
 
 **Ready for:**
+
 - Production deployment
 - End-to-end testing
 - User training and onboarding
 
 **Still To Do:**
+
 - Email reminders (next phase)
 - Time validation (next phase)
 - Custom shift times (future phase)
-

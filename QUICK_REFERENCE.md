@@ -3,6 +3,7 @@
 ## 🚀 Quick Start
 
 ### Deploy
+
 ```bash
 php artisan migrate
 php artisan cache:clear
@@ -10,6 +11,7 @@ npm run build
 ```
 
 ### Test
+
 ```bash
 # Check status (employee)
 curl -H "Authorization: Bearer TOKEN" \
@@ -25,6 +27,7 @@ curl -H "Authorization: Bearer TOKEN" \
 ## 📱 API Endpoints
 
 ### 1. Submission Status (Employee)
+
 ```
 GET /api/task-logs/status/submission
 
@@ -38,6 +41,7 @@ Response: {
 ```
 
 ### 2. Submit Logs (Updated)
+
 ```
 POST /api/task-logs
 
@@ -54,6 +58,7 @@ Response: {
 ```
 
 ### 3. Missing Submissions (Admin)
+
 ```
 GET /api/submissions/missing?date=2026-02-09
 
@@ -68,6 +73,7 @@ Response: {
 ```
 
 ### 4. Submission Trend (Admin)
+
 ```
 GET /api/submissions/trend?days=7
 
@@ -83,6 +89,7 @@ Response: {
 ## 🗄️ Database Schema
 
 ### New Columns in task_logs
+
 ```
 submitted_at        TIMESTAMP      // When submitted
 is_late             BOOLEAN        // Late flag (indexed)
@@ -95,6 +102,7 @@ time_gaps           JSON           // Uncovered periods
 ```
 
 ### New Indexes
+
 ```
 INDEX (user_id, date, is_late)
 INDEX (submitted_at)
@@ -105,6 +113,7 @@ INDEX (submitted_at)
 ## 💻 Model Methods (TaskLog)
 
 ### Mark as Submitted
+
 ```php
 $log->markAsSubmitted('evening_log')->save();
 
@@ -112,6 +121,7 @@ $log->markAsSubmitted('evening_log')->save();
 ```
 
 ### Query Scopes
+
 ```php
 TaskLog::late()->get();                  // WHERE is_late = true
 TaskLog::submitted()->get();             // WHERE submitted_at NOT NULL
@@ -120,6 +130,7 @@ TaskLog::forDate('2026-02-09')->get();   // WHERE date = '2026-02-09'
 ```
 
 ### Helper Methods
+
 ```php
 $log->getSubmissionDeadline();           // Returns 11 PM as Carbon
 $log->isDeadlineApproaching();           // Check if < 1 hour
@@ -131,11 +142,12 @@ $log->getMinutesUntilDeadline();         // Signed int
 ## ⚛️ React Components
 
 ### DeadlineTimer
+
 ```jsx
-import DeadlineTimer from '../components/DeadlineTimer';
+import DeadlineTimer from "../components/DeadlineTimer";
 
 // Usage
-<DeadlineTimer refreshInterval={30000} />
+<DeadlineTimer refreshInterval={30000} />;
 
 // States:
 // Green - Submitted
@@ -144,11 +156,12 @@ import DeadlineTimer from '../components/DeadlineTimer';
 ```
 
 ### MissingSubmissions
+
 ```jsx
-import MissingSubmissions from '../components/MissingSubmissions';
+import MissingSubmissions from "../components/MissingSubmissions";
 
 // Usage (in admin dashboard)
-<MissingSubmissions />
+<MissingSubmissions />;
 
 // Shows:
 // - Date picker
@@ -162,18 +175,19 @@ import MissingSubmissions from '../components/MissingSubmissions';
 
 ### Who Can Access What
 
-| Endpoint | Required Auth | Access Control |
-|----------|---------------|-----------------|
-| GET /task-logs/status/submission | Sanctum token | User can only see own status |
-| POST /task-logs | Sanctum token | Submit own logs only |
-| GET /submissions/missing | Sanctum + manageUsers gate | Admins/supervisors only |
-| GET /submissions/trend | Sanctum + manageUsers gate | Admins only |
+| Endpoint                         | Required Auth              | Access Control               |
+| -------------------------------- | -------------------------- | ---------------------------- |
+| GET /task-logs/status/submission | Sanctum token              | User can only see own status |
+| POST /task-logs                  | Sanctum token              | Submit own logs only         |
+| GET /submissions/missing         | Sanctum + manageUsers gate | Admins/supervisors only      |
+| GET /submissions/trend           | Sanctum + manageUsers gate | Admins only                  |
 
 ---
 
 ## 📊 Common Queries
 
 ### Find All Late Submissions for a Date
+
 ```php
 $late = TaskLog::where('is_late', true)
     ->whereDate('date', '2026-02-09')
@@ -182,6 +196,7 @@ $late = TaskLog::where('is_late', true)
 ```
 
 ### Check if User Submitted Today
+
 ```php
 $submitted = TaskLog::where('user_id', $userId)
     ->whereDate('date', now())
@@ -191,6 +206,7 @@ $submitted = TaskLog::where('user_id', $userId)
 ```
 
 ### Get Submission Rate for a Date
+
 ```php
 $count = TaskLog::whereDate('date', '2026-02-09')
     ->where('submission_type', 'evening_log')
@@ -202,6 +218,7 @@ $rate = ($count / User::where('role', 'employee')->count()) * 100;
 ```
 
 ### Get Team Status by Supervisor
+
 ```php
 $team = User::where('supervisor_id', $supervisorId)
     ->where('role', 'employee')
@@ -219,26 +236,34 @@ $submissions = TaskLog::whereIn('user_id', $team->pluck('id'))
 ## 🐛 Debugging
 
 ### Issue: is_late Always False
+
 **Fix:** Ensure `markAsSubmitted()` called BEFORE save()
+
 ```php
 $log->markAsSubmitted($type);
 $log->save();  // ✓ Correct
 ```
 
 ### Issue: Deadline Timer Shows Wrong Time
+
 **Check:** APP_TIMEZONE in .env
+
 ```env
 APP_TIMEZONE=Asia/Colombo  # Your timezone
 ```
 
 ### Issue: Admin Report Shows Wrong Counts
+
 **Fix:** Clear cache
+
 ```bash
 php artisan cache:clear
 ```
 
 ### Issue: Audit Logs Not Created
+
 **Check:** Is AuditLog::create() being called?
+
 ```php
 if ($log->is_late) {  // Must be true
     AuditLog::create([...]);
@@ -250,6 +275,7 @@ if ($log->is_late) {  // Must be true
 ## 📈 Performance Tips
 
 ### Optimize Queries
+
 ```php
 // ❌ SLOW
 TaskLog::where('is_late', true)->get();
@@ -262,6 +288,7 @@ TaskLog::where('is_late', true)
 ```
 
 ### Cache Results
+
 ```php
 $summary = Cache::remember("submissions.{$date}", 300, function () {
     return DB::table('task_logs')
@@ -304,24 +331,26 @@ $summary = Cache::remember("submissions.{$date}", 300, function () {
 
 ## 📚 Documentation Guide
 
-| Document | For | Key Sections |
-|----------|-----|--------------|
-| PHASE_0_ITEM_1_COMPLETE.md | Everyone | Overview, what's included, next steps |
-| DEADLINE_ENFORCEMENT_IMPLEMENTATION.md | Product/Managers | Feature overview, how to use, examples |
-| DEVELOPER_INTEGRATION_GUIDE.md | Developers | API flows, code examples, debugging |
-| DEPLOYMENT_TESTING_CHECKLIST.md | DevOps/QA | Deployment steps, 60+ test cases, rollback |
+| Document                               | For              | Key Sections                               |
+| -------------------------------------- | ---------------- | ------------------------------------------ |
+| PHASE_0_ITEM_1_COMPLETE.md             | Everyone         | Overview, what's included, next steps      |
+| DEADLINE_ENFORCEMENT_IMPLEMENTATION.md | Product/Managers | Feature overview, how to use, examples     |
+| DEVELOPER_INTEGRATION_GUIDE.md         | Developers       | API flows, code examples, debugging        |
+| DEPLOYMENT_TESTING_CHECKLIST.md        | DevOps/QA        | Deployment steps, 60+ test cases, rollback |
 
 ---
 
 ## 🚨 Critical Points
 
 **MUST DO:**
+
 1. ✅ Run migration before deploying
 2. ✅ markAsSubmitted() BEFORE save()
 3. ✅ Use AUTH token for API calls
 4. ✅ Check manageUsers gate for admin endpoints
 
 **DO NOT:**
+
 1. ❌ Hardcode 11 PM deadline (ready for config in Phase 0 Item 5)
 2. ❌ Forget to call cache:clear after deploy
 3. ❌ Skip the deployment testing checklist
@@ -332,12 +361,14 @@ $summary = Cache::remember("submissions.{$date}", 300, function () {
 ## 📞 Quick Links
 
 **Files to Review:**
+
 - Migration: `database/migrations/2026_02_09_000000_*.php`
 - Backend: `app/Models/TaskLog.php`, `app/Http/Controllers/Api/*`
 - Frontend: `resources/js/components/DeadlineTimer.jsx`, `MissingSubmissions.jsx`
 - Routes: `routes/api.php`
 
 **Key Classes to Know:**
+
 - `TaskLog` model - Deadline logic
 - `TaskLogController` - Submission handling
 - `ReportingController` - Admin reports
@@ -349,6 +380,7 @@ $summary = Cache::remember("submissions.{$date}", 300, function () {
 ## 📊 Success Metrics
 
 **Post-Deployment Targets:**
+
 - ✅ 85%+ on-time submission rate (Week 1)
 - ✅ 0 critical production errors
 - ✅ API response times < 500ms
@@ -361,10 +393,10 @@ $summary = Cache::remember("submissions.{$date}", 300, function () {
 
 1. ✅ Item 1: **Deadline Enforcement** (DONE)
 2. ⏳ Item 2: **Email Reminders**
-   - 1 hour before deadline
-   - 30 mins before deadline
-   - Late notification
-   - Missing notification
+    - 1 hour before deadline
+    - 30 mins before deadline
+    - Late notification
+    - Missing notification
 
 3. ⏳ Item 3: **Time Gaps Validation**
 4. ⏳ Item 4: **Break Deductions**
@@ -375,4 +407,3 @@ $summary = Cache::remember("submissions.{$date}", 300, function () {
 **Last Updated:** February 9, 2026  
 **Status:** ✅ Production Ready  
 **Deployment:** Ready to proceed
-

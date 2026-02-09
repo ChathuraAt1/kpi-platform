@@ -9,6 +9,7 @@
 ## Pre-Deployment Checklist
 
 ### Code Review
+
 - [ ] Review migration file `2026_02_09_000000_add_submission_deadline_tracking_to_task_logs.php`
 - [ ] Review TaskLog model changes (markAsSubmitted, getSubmissionDeadline methods)
 - [ ] Review TaskLogController store() and submissionStatus() methods
@@ -19,12 +20,14 @@
 - [ ] Check that EmployeeDashboard imports DeadlineTimer component
 
 ### Database Preparation
+
 - [ ] Backup production database (`mysqldump -u user -p database > backup.sql`)
 - [ ] Test migration in staging environment
 - [ ] Verify no data loss in migration rollback test
 - [ ] Confirm table structure after migration
 
 ### Dependencies Check
+
 - [ ] Confirm Laravel version supports migration syntax (Laravel 12+)
 - [ ] Confirm Sanctum is installed (for auth middleware)
 - [ ] Confirm Axios is available in frontend
@@ -49,6 +52,7 @@ php artisan migrate:status | grep "add_submission_deadline"
 ```
 
 **Rollback Plan:**
+
 ```bash
 php artisan migrate:rollback --force  # Only if critical issue found
 ```
@@ -97,6 +101,7 @@ curl -H "Authorization: Bearer{TEST_TOKEN}" \
 ### A. Database Tests
 
 #### Test 1: Migration Successful
+
 ```bash
 # Check table structure
 DESCRIBE task_logs;
@@ -113,6 +118,7 @@ DESCRIBE task_logs;
 ```
 
 #### Test 2: Indexes Created
+
 ```bash
 # Check indexes exist
 SHOW INDEX FROM task_logs;
@@ -123,6 +129,7 @@ SHOW INDEX FROM task_logs;
 ```
 
 #### Test 3: Data Integrity
+
 ```bash
 # Verify no data loss for existing rows
 SELECT COUNT(*) FROM task_logs;   # Should match count before migration
@@ -135,6 +142,7 @@ SELECT COUNT(*) FROM tasks;       # Unaffected
 ### B. API Endpoint Tests
 
 #### Test 1: Get Submission Status
+
 ```bash
 # Request
 curl -X GET "https://api.company.com/api/task-logs/status/submission" \
@@ -154,12 +162,14 @@ curl -X GET "https://api.company.com/api/task-logs/status/submission" \
 ```
 
 **Test Cases:**
+
 - [ ] Valid user returns correct status
 - [ ] Missing auth token returns 401 Unauthorized
 - [ ] Endpoint responds in < 100ms
 - [ ] Submission status accurate (changes immediately after submit)
 
 #### Test 2: Submit Task Logs (Updated)
+
 ```bash
 # Request with submission_type
 curl -X POST "https://api.company.com/api/task-logs" \
@@ -197,6 +207,7 @@ curl -X POST "https://api.company.com/api/task-logs" \
 ```
 
 **Test Cases:**
+
 - [ ] Submission before 11 PM: `is_late` = false
 - [ ] Submission after 11 PM: `is_late` = true
 - [ ] Response includes `late_count`
@@ -204,6 +215,7 @@ curl -X POST "https://api.company.com/api/task-logs" \
 - [ ] `submitted_at` timestamp is accurate
 
 #### Test 3: Get Missing Submissions (Admin)
+
 ```bash
 # Request with date parameter
 curl -X GET "https://api.company.com/api/submissions/missing?date=2026-02-09" \
@@ -251,6 +263,7 @@ curl -X GET "https://api.company.com/api/submissions/missing?date=2026-02-09" \
 ```
 
 **Test Cases:**
+
 - [ ] Endpoint requires admin authorization (manageUsers gate)
 - [ ] Counts accurate (total = submitted + late + missing)
 - [ ] Each section has correct employee data
@@ -259,6 +272,7 @@ curl -X GET "https://api.company.com/api/submissions/missing?date=2026-02-09" \
 - [ ] Missing employees show supervisor info
 
 #### Test 4: Get Submission Trends (Admin)
+
 ```bash
 # Request with days parameter
 curl -X GET "https://api.company.com/api/submissions/trend?days=7" \
@@ -290,6 +304,7 @@ curl -X GET "https://api.company.com/api/submissions/trend?days=7" \
 ```
 
 **Test Cases:**
+
 - [ ] Returns 7 days of data by default
 - [ ] Submission rate calculated correctly: `(submitted / total) * 100`
 - [ ] Days in chronological order
@@ -302,6 +317,7 @@ curl -X GET "https://api.company.com/api/submissions/trend?days=7" \
 #### Test 1: DeadlineTimer Component Rendering
 
 **Test Case 1a: Before Deadline (4 hours remaining)**
+
 ```
 Expected Display:
 [🟠 Orange Box]
@@ -320,6 +336,7 @@ Expected Behavior:
 - [ ] No pulsing animation
 
 **Test Case 1b: Approaching Deadline (45 minutes remaining)**
+
 ```
 Expected Display:
 [🔴 Red Box]
@@ -336,6 +353,7 @@ Expected Behavior:
 - [ ] Still refreshes every 30 seconds
 
 **Test Case 1c: After Deadline Passed**
+
 ```
 Expected Display:
 [🔴 Red Box - Pulsing]
@@ -353,6 +371,7 @@ Expected Behavior:
 - [ ] Still has submit button/link
 
 **Test Case 1d: Already Submitted**
+
 ```
 Expected Display:
 [🟢 Green Box]
@@ -372,6 +391,7 @@ Expected Behavior:
 - [ ] Submitted time shown
 
 **Test Case 1e: Mobile Responsiveness**
+
 - [ ] Component displays correctly on mobile (< 600px width)
 - [ ] Text is readable (font size 16px minimum)
 - [ ] Colors visible on all backgrounds
@@ -380,6 +400,7 @@ Expected Behavior:
 #### Test 2: MissingSubmissions Component Rendering
 
 **Test Case 2a: Full View (Mixed Status)**
+
 ```
 Expected Display:
 [Date Picker showing today's date]
@@ -402,6 +423,7 @@ Expected Display:
 - [ ] Color coding matches spec (green/orange/red)
 
 **Test Case 2b: Empty State (100% Submitted)**
+
 ```
 Expected Display:
 [Congratulations message]
@@ -415,6 +437,7 @@ Expected Display:
 - [ ] No tables for late/missing
 
 **Test Case 2c: Date Picker Functionality**
+
 ```
 Test Cases:
 1. Today's date selected by default
@@ -432,29 +455,34 @@ Test Cases:
 **Test Case 2d: Table Details**
 
 **Submitted Table:**
+
 - [ ] Columns: Employee Name, Submitted At, Submission Type
 - [ ] Shows correct submission timestamps
 - [ ] Timestamps in readable format (e.g., "5:30 PM")
 
 **Late Table:**
+
 - [ ] Columns: Employee Name, Supervisor, Submitted At, Minutes Late
 - [ ] Minutes late highlighted in orange or red
 - [ ] Supervisor name shown correctly
 - [ ] Ordered by minutes_late descending (most late first)
 
 **Missing Table:**
+
 - [ ] Columns: Employee Name, Supervisor, Email
 - [ ] Email shown correctly
 - [ ] Supervisor name shown correctly
 - [ ] Includes checkbox for bulk actions (select multiple to notify)
 
 **Test Case 2e: Mobile Responsiveness**
+
 - [ ] Stat cards stack vertically on mobile
 - [ ] Tables horizontal scroll or collapse to card view
 - [ ] Date picker takes full width
 - [ ] All text readable without zoom
 
 **Test Case 2f: Integration with Backend**
+
 - [ ] Component fetches from `/api/submissions/missing?date=...`
 - [ ] Loading state shown while fetching
 - [ ] Error message if API fails
@@ -541,6 +569,7 @@ Expected Duration: < 5 seconds total
 #### Test 3: Admin Authorization
 
 **Test Case 3a: User Without Authorization**
+
 ```
 Request: GET /api/submissions/missing (as regular employee)
 
@@ -556,6 +585,7 @@ Status: 403 Forbidden
 - [ ] Only admins/users with manageUsers gate can access
 
 **Test Case 3b: User With Authorization**
+
 ```
 Request: GET /api/submissions/missing (as admin)
 
@@ -681,6 +711,7 @@ Baseline Requirements:
 ```
 
 **Test Method:**
+
 ```bash
 # Time 100 requests
 for i in {1..100}; do
@@ -716,7 +747,7 @@ Baseline Requirements:
 
 ```sql
 -- Query: Find all late submissions for a date (should use index)
-EXPLAIN SELECT * FROM task_logs 
+EXPLAIN SELECT * FROM task_logs
 WHERE is_late = 1 AND DATE(date) = '2026-02-09'
 AND user_id IN (SELECT id FROM users WHERE role = 'employee');
 
@@ -844,6 +875,7 @@ php artisan tinker  # Or restart web server
 ```
 
 **Issues that trigger rollback:**
+
 - Database migration fails (< 1% chance with tested migration)
 - API endpoints return 500 errors in production
 - Submitted task logs not being saved correctly
@@ -865,30 +897,35 @@ php artisan tinker  # Or restart web server
 ## Sign-Off Checklist
 
 ### Development Team
+
 - [ ] Code reviewed by 2 developers
 - [ ] All tests passing
 - [ ] No linting errors
 - [ ] Migration tested in staging
 
 ### QA Team
+
 - [ ] All test cases passed
 - [ ] Performance benchmarks met
 - [ ] Security tests passed
 - [ ] Edge cases handled
 
 ### Product Team
+
 - [ ] Feature meets requirements
 - [ ] UX acceptable to stakeholders
 - [ ] Documentation complete
 - [ ] Training materials prepared
 
 ### Operations Team
+
 - [ ] Deployment plan reviewed
 - [ ] Monitoring configured
 - [ ] On-call team briefed
 - [ ] Rollback plan tested
 
 ### Business Team
+
 - [ ] Go-ahead approval received
 - [ ] Rollout timeline confirmed
 - [ ] Communication plan ready
@@ -912,6 +949,7 @@ php artisan tinker  # Or restart web server
 10. ✅ Positive feedback from user testing
 
 **Expected Outcome:**
+
 - 85%+ on-time submission rate (within 1 week)
 - 0 critical production issues
 - Positive user feedback on deadline enforcement
@@ -921,12 +959,14 @@ php artisan tinker  # Or restart web server
 ## Contact & Escalation
 
 ### For Issues During Deployment
+
 1. **API Issues:** Contact Backend Team Lead
 2. **Frontend Issues:** Contact Frontend Team Lead
 3. **Database Issues:** Contact DBA
 4. **Critical Issues:** Contact DevOps (rollback decision)
 
 ### Post-Deployment Support
+
 - **Week 1:** Daily standup with full team
 - **Week 2-4:** Twice weekly check-ins
 - **Month 2+:** Weekly status reports
@@ -938,4 +978,3 @@ php artisan tinker  # Or restart web server
 **Last Updated:** February 9, 2026  
 **Approved By:** [Release Manager Name]  
 **Deployment Date:** [To be scheduled]
-

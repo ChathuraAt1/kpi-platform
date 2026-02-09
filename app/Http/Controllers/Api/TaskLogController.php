@@ -20,11 +20,11 @@ class TaskLogController extends Controller
         $date = Carbon::parse($dateStr);
         $user = $request->user();
 
-        $isSaturday = $date->isSaturday();
+        // Get user's effective shift times (custom or global default)
+        $shift = $user->getEffectiveShift($dateStr);
 
-        // Fetch global defaults
-        $breaks = GlobalSetting::getByKey($isSaturday ? 'saturday_breaks' : 'weekday_breaks', []);
-        $shift = GlobalSetting::getByKey($isSaturday ? 'saturday_shift' : 'weekday_shift', ['start' => '08:30', 'end' => '17:30']);
+        // Get user's effective breaks (custom or global default)
+        $breaks = $user->getEffectiveBreaks($dateStr);
 
         // Fetch morning plan for this date
         // NOTE: We only fetch tasks explicitly planned for THIS date if finalized
@@ -86,7 +86,7 @@ class TaskLogController extends Controller
             ];
         }
 
-        // 2. Add breaks
+        // 2. Add breaks (including user's custom breaks if any)
         foreach ($breaks as $b) {
             $rows[] = [
                 'task_id' => null,
@@ -129,7 +129,16 @@ class TaskLogController extends Controller
             return strcmp($a['start_time'], $b['start_time']);
         });
 
-        return response()->json($rows);
+        // Return with metadata about shift/breaks being used
+        return response()->json([
+            'date' => $dateStr,
+            'shift' => $shift,
+            'breaks' => $breaks,
+            'total_break_hours' => $user->getTotalBreakHours($dateStr),
+            'expected_work_hours' => $user->getExpectedWorkHours($dateStr),
+            'timezone' => $user->timezone ?? 'UTC',
+            'rows' => $rows,
+        ]);
     }
 
     private function calculateDuration($start, $end)
@@ -212,7 +221,9 @@ class TaskLogController extends Controller
         $payload = $request->validated();
         $created = [];
         $userId = $request->user()->id;
+        $user = $request->user();
         $submissionType = $request->input('submission_type', 'evening_log'); // morning_plan or evening_log
+        $shiftValidationWarnings = []; // Track all validation warnings
 
         foreach ($payload['rows'] as $row) {
             $taskId = $row['task_id'] ?? null;
@@ -261,9 +272,22 @@ class TaskLogController extends Controller
                 }
             }
 
-            // Create or Update Log
+            // Validate shift and breaks
             $start = $row['start_time'] ?? null;
             $end = $row['end_time'] ?? null;
+            $validation = $this->validateShiftAndBreaks($user, $start, $end, $payload['date']);
+
+            if (!empty($validation['warnings']) && ($row['type'] ?? 'task') === 'task') {
+                foreach ($validation['warnings'] as $warning) {
+                    $shiftValidationWarnings[] = [
+                        'row_index' => array_search($row, $payload['rows']),
+                        'task' => $row['description'] ?? $task?->title ?? 'Unknown',
+                        ...$warning,
+                    ];
+                }
+            }
+
+            // Create or Update Log
             $computedDuration = $this->calculateDuration($start, $end);
 
             $logData = [
@@ -278,7 +302,8 @@ class TaskLogController extends Controller
                 'status' => 'pending', // Always reset to pending on edit/create
                 'metadata' => [
                     'completion_percent' => $row['completion_percent'] ?? 100,
-                    'type' => $row['type'] ?? 'task'
+                    'type' => $row['type'] ?? 'task',
+                    'shift_validation_warnings' => $validation['warnings'] ?? [],
                 ]
             ];
 
@@ -337,6 +362,8 @@ class TaskLogController extends Controller
             'submission_type' => $submissionType,
             'count' => count($created),
             'late_count' => $lateCount,
+            'shift_validation_warnings' => $shiftValidationWarnings,
+            'has_warnings' => !empty($shiftValidationWarnings),
             'created' => $created
         ], 201);
     }
@@ -349,25 +376,25 @@ class TaskLogController extends Controller
     {
         $user = $request->user();
         $today = now()->toDateString();
-        
+
         // Check if user has submitted evening log today
         $hasEveningSubmission = TaskLog::where('user_id', $user->id)
             ->whereDate('date', $today)
             ->where('submission_type', 'evening_log')
             ->whereNotNull('submitted_at')
             ->exists();
-        
+
         $hasNorningSubmission = TaskLog::where('user_id', $user->id)
             ->whereDate('date', $today)
             ->where('submission_type', 'morning_plan')
             ->whereNotNull('submitted_at')
             ->exists();
-        
+
         $deadline = now()->copy()->setHour(23)->setMinute(0)->setSecond(0);
         $minutesRemaining = max(0, (int)$deadline->diffInMinutes(now(), false));
         $isDeadlineApproaching = $minutesRemaining > 0 && $minutesRemaining < 60;
         $isPastDeadline = $minutesRemaining < 0;
-        
+
         return response()->json([
             'date' => $today,
             'has_morning_submission' => $hasNorningSubmission,
@@ -411,5 +438,95 @@ class TaskLogController extends Controller
             'message' => 'Supervisor score saved successfully',
             'log' => $log
         ], 200);
+    }
+
+    /**
+     * Check if a time falls within a time range (HH:MM format)
+     */
+    private function isTimeBetween(string $time, string $start, string $end): bool
+    {
+        $time = Carbon::createFromFormat('H:i', $time);
+        $start = Carbon::createFromFormat('H:i', $start);
+        $end = Carbon::createFromFormat('H:i', $end);
+
+        return $time->greaterThanOrEqualTo($start) && $time->lessThanOrEqualTo($end);
+    }
+
+    /**
+     * Check if task overlaps with any break period
+     */
+    private function checkBreakOverlap(string $startTime, string $endTime, array $breaks): ?array
+    {
+        foreach ($breaks as $break) {
+            $breakStart = Carbon::createFromFormat('H:i', $break['start']);
+            $breakEnd = Carbon::createFromFormat('H:i', $break['end']);
+            $taskStart = Carbon::createFromFormat('H:i', $startTime);
+            $taskEnd = Carbon::createFromFormat('H:i', $endTime);
+
+            // Check for overlap: task starts before break ends AND task ends after break starts
+            if ($taskStart->lessThan($breakEnd) && $taskEnd->greaterThan($breakStart)) {
+                return [
+                    'overlaps' => true,
+                    'break_start' => $break['start'],
+                    'break_end' => $break['end'],
+                    'break_label' => $break['label'] ?? 'Break',
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate task log times against shift window and breaks
+     */
+    private function validateShiftAndBreaks(\App\Models\User $user, string $startTime, string $endTime, string $dateStr): array
+    {
+        $warnings = [];
+
+        if (!$startTime || !$endTime) {
+            return ['valid' => true, 'warnings' => $warnings];
+        }
+
+        // Get user's effective shift
+        $shift = $user->getEffectiveShift($dateStr);
+        $breaks = $user->getEffectiveBreaks($dateStr);
+
+        // Check if times are within shift window
+        $startInShift = $this->isTimeBetween($startTime, $shift['start'], $shift['end']);
+        $endInShift = $this->isTimeBetween($endTime, $shift['start'], $shift['end']);
+
+        if (!$startInShift) {
+            $warnings[] = [
+                'type' => 'start_outside_shift',
+                'message' => "Task starts at {$startTime}, shift starts at {$shift['start']}",
+                'value' => $startTime,
+            ];
+        }
+
+        if (!$endInShift) {
+            $warnings[] = [
+                'type' => 'end_outside_shift',
+                'message' => "Task ends at {$endTime}, shift ends at {$shift['end']}",
+                'value' => $endTime,
+            ];
+        }
+
+        // Check for break overlap
+        $breakOverlap = $this->checkBreakOverlap($startTime, $endTime, $breaks);
+        if ($breakOverlap && $breakOverlap['overlaps']) {
+            $warnings[] = [
+                'type' => 'break_overlap',
+                'message' => "Task overlaps with {$breakOverlap['break_label']} ({$breakOverlap['break_start']}-{$breakOverlap['break_end']})",
+                'break_start' => $breakOverlap['break_start'],
+                'break_end' => $breakOverlap['break_end'],
+            ];
+        }
+
+        return [
+            'valid' => empty($warnings),
+            'warnings' => $warnings,
+            'shift' => $shift,
+        ];
     }
 }

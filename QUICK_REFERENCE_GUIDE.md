@@ -7,8 +7,9 @@
 Your KPI Platform is **~54% complete**. The core infrastructure for task logging and LLM-based evaluation is solid, but critical workflow features for submission enforcement, multi-score evaluation, and role-specific KPI tracking are missing.
 
 ### What's Working ✅
+
 - Daily task logging interface
-- To-do management system  
+- To-do management system
 - LLM task classification (multiple providers)
 - Rule-based monthly evaluations
 - Supervisor team oversight
@@ -16,6 +17,7 @@ Your KPI Platform is **~54% complete**. The core infrastructure for task logging
 - Basic role-based access control
 
 ### What's Broken ❌
+
 - **No submission deadline enforcement** (11 PM rule)
 - **No three-score system** (missing HR + Supervisor scoring UI)
 - **No custom shift times per employee**
@@ -40,8 +42,8 @@ Evening log submission @ 11 PM            ✓ TaskLog APIs exist       ✗ No de
 
 Customizable shift times (8:30-5:30)      ✓ Global settings          ✗ No per-user override
 Customizable breaks (10:30-10:50,        ✓ Break times stored        ✗ No UI to customize
-                     1:00-2:00,           
-                     4:00-4:20)                                      
+                     1:00-2:00,
+                     4:00-4:20)
 
 Two daily submissions (morning/evening)   ✓ Log system exists        ✗ No submission type tracking
                                                                      ✗ No distinction in UI
@@ -50,13 +52,13 @@ Task carryover (unfinished → next day)    ✓ Task status exists       ✗ No 
                                                                      ✗ No visual carryover indicator
 
 KPI Categories per Job Role               ✓ Association exists       ✓ Mostly complete
-                                          ✓ UI to manage            
+                                          ✓ UI to manage
 
 LLM Daily Categorization                  ✓ Job queue runs daily     ✓ Mostly complete
-                                          ✓ Multiple providers       
+                                          ✓ Multiple providers
 
 Rule-Based Monthly Scoring                ✓ EvaluationService        ✓ Mostly complete
-                                          ✓ Weighted calculation     
+                                          ✓ Weighted calculation
 
 LLM Monthly Scoring                       ✓ scoreEvaluation() method ⚠️  Only for OpenAI/Gemini
                                                                      ✗ Need error handling
@@ -68,16 +70,16 @@ Supervisor Score per Category (Opt)       ⚠️ Exists in metadata     ✗ No p
                                           ✓ supervisorScore API      ✗ Should be EvaluationScore table
 
 Average Final Score                       ✗ No calculation           Need 3-4 score averaging logic
-                                                                     
+
 
 Remarks Section (HR + Supervisor)         ✗ No fields               ✗ No UI form
-                                          ✗ No database columns      
+                                          ✗ No database columns
 
 Published KPI to Employee                 ✗ No view page            ✗ Missing employee dashboard page
 (Previous month only)                                                ✗ No notification
 
 Multi-role same hierarchy KPI              ✗ Not implemented         ✗ Supervisor lacks own KPI
-(Supervisor/HR/Manager score too)         ✗ No job_role for mgmt    
+(Supervisor/HR/Manager score too)         ✗ No job_role for mgmt
 
 Admin Dashboard                           ✓ Skeleton exists          ✗ No real-time metrics
                                                                      ✗ No missing submission view
@@ -182,7 +184,9 @@ To launch, **you MUST implement** (in order):
 ## 🔍 Why Current Implementation is Incomplete
 
 ### The Core Problem
+
 Your system was designed with:
+
 - ✅ Infrastructure (database, APIs, LLM, auth)
 - ✅ Logging (task capture)
 - ✅ Assessment (rule-based + LLM scoring)
@@ -239,23 +243,24 @@ WEEK 4: Polish & Automation
 
 ## 📋 Database Changes Needed (Summary)
 
-| Action | Table | Columns |
-|--------|-------|---------|
-| **Add** | task_logs | submitted_at, is_late, submission_type, submission_metadata |
-| **Add** | monthly_evaluations | rule_based_scores, llm_scores, hr_scores, supervisor_scores |
-| **Add** | monthly_evaluations | hr_remarks, hr_remarks_by, hr_remarks_at (and supervisor versions) |
-| **Add** | monthly_evaluations | final_score_status, score_components |
-| **Add** | users | custom_shift_start, custom_shift_end, custom_breaks |
-| **Create** | evaluation_scores | (new: id, evaluation_id, category_id, score_type, score, scorer_id) |
-| **Create** | submission_logs | (new: id, user_id, date, submission_type, submitted_at, is_late) |
-| **Create** | notifications | (new: for in-app notifications) |
-| **Create** | task_categories | (optional: for pre-defined categories) |
+| Action     | Table               | Columns                                                             |
+| ---------- | ------------------- | ------------------------------------------------------------------- |
+| **Add**    | task_logs           | submitted_at, is_late, submission_type, submission_metadata         |
+| **Add**    | monthly_evaluations | rule_based_scores, llm_scores, hr_scores, supervisor_scores         |
+| **Add**    | monthly_evaluations | hr_remarks, hr_remarks_by, hr_remarks_at (and supervisor versions)  |
+| **Add**    | monthly_evaluations | final_score_status, score_components                                |
+| **Add**    | users               | custom_shift_start, custom_shift_end, custom_breaks                 |
+| **Create** | evaluation_scores   | (new: id, evaluation_id, category_id, score_type, score, scorer_id) |
+| **Create** | submission_logs     | (new: id, user_id, date, submission_type, submitted_at, is_late)    |
+| **Create** | notifications       | (new: for in-app notifications)                                     |
+| **Create** | task_categories     | (optional: for pre-defined categories)                              |
 
 ---
 
 ## 🛑 Things NOT to Do
 
 ### ❌ Don't
+
 - Build mobile app yet (web UI still incomplete)
 - Add analytics dashboards (until scoring works)
 - Implement 360-degree feedback (too early)
@@ -264,6 +269,7 @@ WEEK 4: Polish & Automation
 - Add OAuth/SAML SSO (handle later)
 
 ### ✅ Do Focus On
+
 - Making the 11 PM deadline **actually matter**
 - Getting HR/supervisors able to **enter their scores**
 - Letting employees **see their results**
@@ -275,14 +281,18 @@ WEEK 4: Polish & Automation
 ## 💡 Implementation Tips
 
 ### 1. **Submission Deadline**
+
 Don't just store `is_late` passive. Make it **actionable**:
+
 - Show a big red timer on employee dashboard
 - Send first reminder at -1 hour
 - Send "YOU'RE LATE" email at +30 mins past deadline
 - Show in admin view: "2 employees haven't submitted yet"
 
 ### 2. **Three-Score System**
+
 Don't put scores in JSON `metadata`. Use **proper database records**:
+
 ```php
 // ❌ BAD
 $eval->metadata['hr_scores'] = [1 => 8.5, 2 => 9.0];
@@ -298,7 +308,9 @@ EvaluationScore::create([
 ```
 
 ### 3. **Employee KPI View**
+
 Show **comparisons**, not just numbers:
+
 ```
 Your April KPI: 8.2 / 10 ⬆️ +0.6 from March
 ├─ Task Execution: 8.5 (Rule: 8.4, LLM: 8.6, HR: 8.5)
@@ -310,7 +322,9 @@ HR Remarks: Great work on Q2 deliverables!
 ```
 
 ### 4. **Supervisor Dashboard**
+
 Make this the **first login destination** (not generic admin):
+
 ```
 TEAM STATUS TODAY
 ├─ Sarah (submitted 8:45 AM) ✓
@@ -350,7 +364,7 @@ A: Mark key as `degraded`, wait 30 mins, then retry. If 3 failures, mark `inacti
 Before going live, verify:
 
 - [ ] Deadline submitted_at field works correctly
-- [ ] is_late flag updates accurately  
+- [ ] is_late flag updates accurately
 - [ ] Countdown timer shows on employee dashboard
 - [ ] Admin can see missing submissions per day
 - [ ] HR can input scores per category
@@ -375,9 +389,9 @@ Before you start Phase 0, clarify:
 3. **Three Scores**: Which is required? (e.g., Rule + LLM mandatory, HR + Supervisor optional?)
 4. **Final Score**: If only 2 scores exist (Rule + LLM), do we average them? Or wait for HR/Supervisor?
 5. **Manager KPI**: Should manager KPI be based on:
-   - Employee team performance average?
-   - Manager's direct deliverables?
-   - Both?
+    - Employee team performance average?
+    - Manager's direct deliverables?
+    - Both?
 6. **Published View**: Should employees see scores for all months, or just last month?
 7. **Remarks**: Can supervisors edit remarks after published? Can employees comment/reply?
 
@@ -386,8 +400,8 @@ Before you start Phase 0, clarify:
 ## 🎯 Success Metrics
 
 By end of Phase 0, you should have:
+
 - **Zero late submissions go untracked** (100% of submissions timestamped)
 - **HR can score 10 employees in < 5 minutes** (fast UI)
 - **Employees see their previous month KPI within 24 hours of publish** (automation)
 - **Zero evaluation with missing scores** (validation on finalize)
-

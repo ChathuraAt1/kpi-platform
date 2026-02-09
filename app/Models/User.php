@@ -139,4 +139,107 @@ class User extends Authenticatable
             default => 2,
         };
     }
+
+    /**
+     * Get effective shift start time (user custom or global default)
+     * Returns time in HH:MM format
+     */
+    public function getEffectiveShiftStart(?string $dateStr = null): string
+    {
+        // If user has custom shift time set (not null)
+        if ($this->work_start_time) {
+            return substr($this->work_start_time, 0, 5); // Ensure HH:MM format
+        }
+
+        // Fall back to global setting by day of week
+        $date = $dateStr ? \Carbon\Carbon::parse($dateStr) : now();
+        $key = $date->isSaturday() ? 'saturday_shift' : 'weekday_shift';
+        $globalShift = GlobalSetting::getByKey($key, ['start' => '08:30', 'end' => '17:30']);
+
+        return $globalShift['start'] ?? '08:30';
+    }
+
+    /**
+     * Get effective shift end time (user custom or global default)
+     * Returns time in HH:MM format
+     */
+    public function getEffectiveShiftEnd(?string $dateStr = null): string
+    {
+        // If user has custom shift time set (not null)
+        if ($this->work_end_time) {
+            return substr($this->work_end_time, 0, 5); // Ensure HH:MM format
+        }
+
+        // Fall back to global setting by day of week
+        $date = $dateStr ? \Carbon\Carbon::parse($dateStr) : now();
+        $key = $date->isSaturday() ? 'saturday_shift' : 'weekday_shift';
+        $globalShift = GlobalSetting::getByKey($key, ['start' => '08:30', 'end' => '17:30']);
+
+        return $globalShift['end'] ?? '17:30';
+    }
+
+    /**
+     * Get effective breaks array (user custom or global default)
+     * Returns array of break objects: [{'start': 'HH:MM', 'end': 'HH:MM', 'label': 'Break Name'}, ...]
+     */
+    public function getEffectiveBreaks(?string $dateStr = null): array
+    {
+        // If user has custom breaks set (array not empty)
+        if ($this->breaks && is_array($this->breaks) && !empty($this->breaks)) {
+            return $this->breaks;
+        }
+
+        // Fall back to global setting by day of week
+        $date = $dateStr ? \Carbon\Carbon::parse($dateStr) : now();
+        $key = $date->isSaturday() ? 'saturday_breaks' : 'weekday_breaks';
+        $globalBreaks = GlobalSetting::getByKey($key, []);
+
+        return is_array($globalBreaks) ? $globalBreaks : [];
+    }
+
+    /**
+     * Get shift info array with both times (for frontend display)
+     */
+    public function getEffectiveShift(?string $dateStr = null): array
+    {
+        return [
+            'start' => $this->getEffectiveShiftStart($dateStr),
+            'end' => $this->getEffectiveShiftEnd($dateStr),
+            'is_custom' => !is_null($this->work_start_time) || !is_null($this->work_end_time),
+        ];
+    }
+
+    /**
+     * Calculate total break duration in hours
+     */
+    public function getTotalBreakHours(?string $dateStr = null): float
+    {
+        $breaks = $this->getEffectiveBreaks($dateStr);
+        $total = 0.0;
+
+        foreach ($breaks as $break) {
+            if (isset($break['start']) && isset($break['end'])) {
+                $start = \Carbon\Carbon::createFromFormat('H:i', $break['start']);
+                $end = \Carbon\Carbon::createFromFormat('H:i', $break['end']);
+                $total += $start->diffInMinutes($end) / 60;
+            }
+        }
+
+        return round($total, 2);
+    }
+
+    /**
+     * Calculate expected work hours (shift duration minus breaks)
+     */
+    public function getExpectedWorkHours(?string $dateStr = null): float
+    {
+        $shift = $this->getEffectiveShift($dateStr);
+        $shiftStart = \Carbon\Carbon::createFromFormat('H:i', $shift['start']);
+        $shiftEnd = \Carbon\Carbon::createFromFormat('H:i', $shift['end']);
+
+        $shiftHours = $shiftStart->diffInMinutes($shiftEnd) / 60;
+        $breakHours = $this->getTotalBreakHours($dateStr);
+
+        return round($shiftHours - $breakHours, 2);
+    }
 }

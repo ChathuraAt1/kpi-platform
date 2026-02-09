@@ -16,11 +16,11 @@ class UserController extends Controller
         if ($request->has('role')) {
             $q->where('role', $request->query('role'));
         }
-        
+
         if ($request->has('all')) {
             return response()->json($q->get());
         }
-        
+
         return response()->json($q->paginate(100));
     }
 
@@ -79,7 +79,7 @@ class UserController extends Controller
     public function updateProfile(Request $request)
     {
         $user = $request->user();
-        
+
         $data = $request->validate([
             'name' => 'sometimes|string|max:255',
             'work_start_time' => 'nullable|string',
@@ -87,6 +87,12 @@ class UserController extends Controller
             'timezone' => 'nullable|string',
             'breaks' => 'nullable|array',
         ]);
+
+        // Mark as custom schedule if user is setting custom shift or breaks
+        if (isset($data['work_start_time']) || isset($data['work_end_time']) || (isset($data['breaks']) && !empty($data['breaks']))) {
+            $data['has_custom_schedule'] = true;
+            $data['schedule_customized_at'] = now();
+        }
 
         $user->update($data);
 

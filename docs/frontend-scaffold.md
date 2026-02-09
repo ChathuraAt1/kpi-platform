@@ -18,7 +18,7 @@ Components:
 
 How it integrates with backend:
 
-- Submitting task logs: POST `/api/task-logs` expects `{ date: "YYYY-MM-DD", rows: [{ start_time, end_time, duration_hours, description, kpi_category_id }] }`.
+- Submitting task logs: POST `/api/task-logs` expects `{ date: "YYYY-MM-DD", rows: [{ start_time, end_time, description, kpi_category_id }] }` — `duration_hours` is computed by the server from `start_time`/`end_time`.
 - Fetching evaluations: GET `/api/evaluations` (Auth required).
 - Managing API keys: GET `/api/api-keys` (admin)
 - Reporting: GET `/api/submissions/missing?date=YYYY-MM-DD` (admin)

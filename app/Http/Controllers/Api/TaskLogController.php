@@ -19,13 +19,13 @@ class TaskLogController extends Controller
         $dateStr = $request->query('date', now()->toDateString());
         $date = Carbon::parse($dateStr);
         $user = $request->user();
-        
+
         $isSaturday = $date->isSaturday();
-        
+
         // Fetch global defaults
         $breaks = GlobalSetting::getByKey($isSaturday ? 'saturday_breaks' : 'weekday_breaks', []);
         $shift = GlobalSetting::getByKey($isSaturday ? 'saturday_shift' : 'weekday_shift', ['start' => '08:30', 'end' => '17:30']);
-        
+
         // Fetch morning plan for this date
         // NOTE: We only fetch tasks explicitly planned for THIS date if finalized
         // OR we fetch rollover suggestions if not finalized.
@@ -41,37 +41,37 @@ class TaskLogController extends Controller
 
         $tasksQuery = Task::where('owner_id', $user->id)
             ->whereNotIn('id', $loggedTaskIds);
-        
+
         if ($isFinalized) {
-            $tasksQuery->where(function($q) use ($dateStr) {
+            $tasksQuery->where(function ($q) use ($dateStr) {
                 $q->whereDate('due_date', $dateStr)
-                  ->orWhere('metadata->plan_date', $dateStr);
+                    ->orWhere('metadata->plan_date', $dateStr);
             });
         } else {
             // Suggest rollover + new items (same as getPlan)
-            $tasksQuery->where(function($q) use ($dateStr) {
+            $tasksQuery->where(function ($q) use ($dateStr) {
                 $q->whereDate('due_date', $dateStr)
-                  ->orWhere('metadata->plan_date', $dateStr)
-                  ->orWhere(function($sq) use ($dateStr) {
-                      $sq->whereIn('status', ['open', 'inprogress', 'not_started'])
-                         ->where(function($ssq) use ($dateStr) {
-                             $ssq->whereDate('due_date', '<', $dateStr)
-                                 ->orWhere('metadata->plan_date', '<', $dateStr)
-                                 ->orWhereDate('created_at', '<', $dateStr);
-                         });
-                  });
+                    ->orWhere('metadata->plan_date', $dateStr)
+                    ->orWhere(function ($sq) use ($dateStr) {
+                        $sq->whereIn('status', ['open', 'inprogress', 'not_started'])
+                            ->where(function ($ssq) use ($dateStr) {
+                                $ssq->whereDate('due_date', '<', $dateStr)
+                                    ->orWhere('metadata->plan_date', '<', $dateStr)
+                                    ->orWhereDate('created_at', '<', $dateStr);
+                            });
+                    });
             });
         }
 
         $tasks = $tasksQuery->get();
 
         $rows = [];
-        
+
         // 1. Add morning plan tasks
         foreach ($tasks as $t) {
             $rows[] = [
                 'task_id' => $t->id,
-                'start_time' => '', 
+                'start_time' => '',
                 'end_time' => '',
                 'duration_hours' => $t->planned_hours ?? 0,
                 'description' => $t->title,
@@ -123,7 +123,7 @@ class TaskLogController extends Controller
         ];
 
         // Sort rows by start_time if possible, or just keep order
-        usort($rows, function($a, $b) {
+        usort($rows, function ($a, $b) {
             if (!$a['start_time']) return 1;
             if (!$b['start_time']) return -1;
             return strcmp($a['start_time'], $b['start_time']);
@@ -132,13 +132,17 @@ class TaskLogController extends Controller
         return response()->json($rows);
     }
 
-    private function calculateDuration($start, $end) {
+    private function calculateDuration($start, $end)
+    {
         if (!$start || !$end) return 0;
         try {
             $s = Carbon::parse($start);
             $e = Carbon::parse($end);
-            return round(max(0, $e->diffInMinutes($s) / 60), 2);
-        } catch (\Exception $e) { return 0; }
+            $minutes = $s->diffInMinutes($e);
+            return round(max(0, $minutes / 60), 2);
+        } catch (\Exception $e) {
+            return 0;
+        }
     }
 
     private function getPriorityWeight(string $priority): int
@@ -160,7 +164,7 @@ class TaskLogController extends Controller
         if ($user->hasRole('supervisor') && !$user->hasRole('admin') && !$user->hasRole('hr') && !$user->hasRole('it_admin')) {
             $subordinateIds = $user->getAllSubordinateIds();
             $subordinateIds[] = $user->id; // Can see self too
-            
+
             if ($request->has('user_id')) {
                 $targetId = $request->query('user_id');
                 if (!in_array($targetId, $subordinateIds)) {
@@ -177,11 +181,11 @@ class TaskLogController extends Controller
         // Filtering
         if ($request->has('search')) {
             $search = $request->query('search');
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('description', 'like', "%{$search}%")
-                  ->orWhereHas('user', function($uq) use ($search) {
-                      $uq->where('name', 'like', "%{$search}%");
-                  });
+                    ->orWhereHas('user', function ($uq) use ($search) {
+                        $uq->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -220,7 +224,7 @@ class TaskLogController extends Controller
                 if ($task && $task->owner_id == $userId) {
                     $updates = [];
                     if (!empty($row['priority'])) $updates['priority'] = $row['priority'];
-                    
+
                     $percent = $row['completion_percent'] ?? 0;
                     if ($percent >= 100) {
                         $updates['status'] = 'complete';
@@ -247,20 +251,33 @@ class TaskLogController extends Controller
                 $taskId = $task->id;
             }
 
+            // Security Check: Only allow logging for today
+            $today = now()->toDateString();
+            if ($payload['date'] < $today) {
+                // Option: Allow admin/hr to override if needed, but for now strict for employees
+                if (!$request->user()->hasRole('admin') && !$request->user()->hasRole('hr')) {
+                    continue; // Skip past dates for regular users
+                }
+            }
+
             // Create or Update Log
+            $start = $row['start_time'] ?? null;
+            $end = $row['end_time'] ?? null;
+            $computedDuration = $this->calculateDuration($start, $end);
+
             $logData = [
                 'user_id' => $userId,
                 'date' => $payload['date'],
-                'duration_hours' => $row['duration_hours'] ?? 0,
-                'start_time' => $row['start_time'] ?? null,
-                'end_time' => $row['end_time'] ?? null,
+                'start_time' => $start,
+                'end_time' => $end,
+                'duration_hours' => $computedDuration,
                 'description' => $row['description'] ?? ($task?->title ?? ''),
                 'kpi_category_id' => $row['kpi_category_id'] ?? null,
                 'task_id' => $taskId,
-                'status' => $row['status'] ?? 'pending', 
+                'status' => 'pending', // Always reset to pending on edit/create
                 'metadata' => [
-                     'completion_percent' => $row['completion_percent'] ?? 100,
-                     'type' => $row['type'] ?? 'task'
+                    'completion_percent' => $row['completion_percent'] ?? 100,
+                    'type' => $row['type'] ?? 'task'
                 ]
             ];
 
@@ -296,23 +313,30 @@ class TaskLogController extends Controller
         return response()->json($log);
     }
 
-    public function approve(Request $request, $id)
-    {
-        $log = TaskLog::findOrFail($id);
-        $log->status = 'approved';
-        $log->approved_by = $request->user()->id;
-        $log->approved_at = now();
-        $log->save();
-        return response()->json($log);
-    }
+    // Note: approve/reject methods removed per new supervisor workflow.
+    // Supervisor review is handled as read-only; optional supervisor scoring is saved via `saveSupervisorScore`.
 
-    public function reject(Request $request, $id)
+    public function saveSupervisorScore(Request $request, $id)
     {
-        $data = $request->validate(['comment' => 'nullable|string']);
+        $data = $request->validate([
+            'supervisor_score' => 'required|numeric|min:0|max:100'
+        ]);
+
         $log = TaskLog::findOrFail($id);
-        $log->status = 'rejected';
+        $user = $request->user();
+
+        // Verify the supervisor has permission to score this log
+        // (e.g., they're the supervisor of the task's owner)
+        // For now, assume any authenticated user can score (adjust as needed)
+
+        $metadata = $log->metadata ?? [];
+        $metadata['supervisor_score'] = $data['supervisor_score'];
+        $log->metadata = $metadata;
         $log->save();
-        // TODO: store rejection comment as Comment polymorphic or notification
-        return response()->json($log);
+
+        return response()->json([
+            'message' => 'Supervisor score saved successfully',
+            'log' => $log
+        ], 200);
     }
 }

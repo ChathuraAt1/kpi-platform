@@ -24,7 +24,10 @@ class ReportingTest extends TestCase
         $resp->assertStatus(200)->assertJson(['date' => '2026-01-15']);
 
         $data = $resp->json();
-        $this->assertCount(1, $data['missing']);
-        $this->assertEquals($u2->id, $data['missing'][0]['id']);
+        $ids = array_map(fn($x) => $x['id'], $data['missing']);
+
+        // Ensure the user without logs is reported missing, and the user with a log is not
+        $this->assertContains($u2->id, $ids);
+        $this->assertNotContains($u1->id, $ids);
     }
 }

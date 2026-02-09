@@ -8,6 +8,10 @@ use App\Http\Controllers\Api\TaskLogController;
 use App\Http\Controllers\Api\TodoController;
 use App\Http\Controllers\Api\ApiKeyController;
 use App\Http\Controllers\Api\UserController; // Added this line
+use App\Http\Controllers\Api\ServerTimeController;
+
+// Public server time used for client fallback/time sync
+Route::get('/server-time', [ServerTimeController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [App\Http\Controllers\Api\AuthController::class, 'me']);
@@ -23,14 +27,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('task-logs/daily-template', [TaskLogController::class, 'getDailyTemplate']);
     Route::post('task-logs', [TaskLogController::class, 'store']);
     Route::get('task-logs/{id}', [TaskLogController::class, 'show']);
-    Route::post('task-logs/{id}/approve', [TaskLogController::class, 'approve']);
-    Route::post('task-logs/{id}/reject', [TaskLogController::class, 'reject']);
+    // Deprecated: per-task approve/reject workflow removed — supervisors no longer approve individual logs
+    Route::post('task-logs/{id}/supervisor-score', [TaskLogController::class, 'saveSupervisorScore']);
 
     Route::apiResource('api-keys', ApiKeyController::class);
     Route::post('api-keys/health-check', [ApiKeyController::class, 'healthCheckAll'])->middleware('can:manageApiKeys');
     Route::post('evaluations/trigger', [\App\Http\Controllers\Api\EvaluationController::class, 'trigger'])->middleware('can:manageEvaluations');
     Route::get('evaluations', [\App\Http\Controllers\Api\EvaluationController::class, 'list'])->middleware('can:viewEvaluations');
-    Route::post('evaluations/{evaluation}/approve', [\App\Http\Controllers\Api\EvaluationController::class, 'approve'])->middleware('can:approveEvaluations');
+    // Deprecated: evaluation approve endpoint removed — supervisor scoring handled via other flows
     Route::post('evaluations/{evaluation}/publish', [\App\Http\Controllers\Api\EvaluationController::class, 'publish'])->middleware('can:publishEvaluations');
 
     // user management

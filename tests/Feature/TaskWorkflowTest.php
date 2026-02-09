@@ -16,7 +16,7 @@ class TaskWorkflowTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Seed global settings for breaks
         GlobalSetting::setByKey('weekday_breaks', [
             ['start' => '10:30', 'end' => '10:50', 'label' => 'Coffee Break']
@@ -39,7 +39,7 @@ class TaskWorkflowTest extends TestCase
 
         $response->assertStatus(201);
         $this->assertCount(2, Task::where('owner_id', $user->id)->get());
-        
+
         $plan = DailyPlan::where('user_id', $user->id)->where('date', $date)->first();
         $this->assertTrue($plan->is_finalized);
 
@@ -64,13 +64,13 @@ class TaskWorkflowTest extends TestCase
 
         // 2. Get template
         $response = $this->actingAs($user)->getJson("/api/task-logs/daily-template?date={$date}");
-        
+
         $response->assertStatus(200);
         $data = $response->json();
 
         // Should have: Planned Task + Break + Shift End
         $this->assertCount(3, $data);
-        
+
         $types = collect($data)->pluck('type');
         $this->assertTrue($types->contains('task'));
         $this->assertTrue($types->contains('break'));
@@ -98,7 +98,8 @@ class TaskWorkflowTest extends TestCase
                     'task_id' => $task->id,
                     'description' => 'Working on it',
                     'completion_percent' => 100,
-                    'duration_hours' => 2,
+                    'start_time' => '09:00',
+                    'end_time' => '11:00',
                 ]
             ]
         ]);
@@ -117,10 +118,34 @@ class TaskWorkflowTest extends TestCase
                 [
                     'task_id' => $task2->id,
                     'completion_percent' => 50,
-                    'duration_hours' => 1,
+                    'start_time' => '10:00',
+                    'end_time' => '11:00',
                 ]
             ]
         ]);
         $this->assertEquals('inprogress', $task2->refresh()->status);
+    }
+
+    public function test_server_ignores_client_submitted_duration()
+    {
+        $user = User::factory()->create();
+        $date = now()->toDateString();
+
+        $response = $this->actingAs($user)->postJson('/api/task-logs', [
+            'date' => $date,
+            'rows' => [
+                [
+                    'description' => 'Manual mismatch',
+                    'start_time' => '09:00',
+                    'end_time' => '10:30',
+                    'duration_hours' => 10, // incorrect client value
+                ]
+            ]
+        ]);
+
+        $response->assertStatus(201);
+        $logId = $response->json('created.0.id');
+
+        $this->assertDatabaseHas('task_logs', ['id' => $logId, 'duration_hours' => 1.5]);
     }
 }

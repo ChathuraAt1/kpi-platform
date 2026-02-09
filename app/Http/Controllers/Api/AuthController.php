@@ -21,9 +21,14 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
+            $user = Auth::user();
+
+            // Generate a Sanctum token for the SPA
+            $token = $user->createToken('spa-token', ['*'])->plainTextToken;
 
             return response()->json([
-                'user' => Auth::user(),
+                'user' => $user,
+                'token' => $token,
                 'message' => 'Login successful'
             ]);
         }

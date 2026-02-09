@@ -19,6 +19,14 @@ export function AuthProvider({ children }) {
 
     const [showReauthModal, setShowReauthModal] = useState(false);
     const [reauthAttempts, setReauthAttempts] = useState(0);
+    const reauthAttemptsRef = useRef(0);
+    const sessionToastShownRef = useRef(false);
+    const isIntentionalLogoutRef = useRef(false);
+
+    // keep ref in sync with state for reliable checks in async handlers
+    useEffect(() => {
+        reauthAttemptsRef.current = reauthAttempts;
+    }, [reauthAttempts]);
 
     async function attemptSilentRefresh() {
         // Try to refresh CSRF cookie and re-fetch user once
@@ -55,17 +63,33 @@ export function AuthProvider({ children }) {
                     if (err.response && err.response.status === 401) {
                         // Not authenticated — try a silent refresh once
                         const refreshed = await attemptSilentRefresh();
-                        if (refreshed) return res.data;
-                        // increment attempts and schedule modal if exceeded
-                        setReauthAttempts((n) => n + 1);
-                        if (reauthAttempts + 1 >= 2) {
-                            setShowReauthModal(true);
-                            addToast({
-                                type: "warning",
-                                message:
-                                    "Session expired — please re-authenticate to continue.",
-                            });
+                        if (refreshed) {
+                            // Silent refresh succeeded and `attemptSilentRefresh` already set user
+                            setLoading(false);
+                            return;
                         }
+
+                        // Safely increment attempts and react to threshold outside updater to avoid nested state updates during render
+                        let newCount;
+                        setReauthAttempts((n) => {
+                            newCount = n + 1;
+                            return newCount;
+                        });
+
+                        if (newCount >= 2) {
+                            setShowReauthModal(true);
+                            // defer toast to avoid setState during unrelated render cycles
+                            setTimeout(
+                                () =>
+                                    addToast({
+                                        type: "warning",
+                                        message:
+                                            "Session expired — please re-authenticate to continue.",
+                                    }),
+                                0,
+                            );
+                        }
+
                         continue;
                     }
                     // try next
@@ -81,6 +105,13 @@ export function AuthProvider({ children }) {
     }
 
     useEffect(() => {
+        // Restore token from localStorage on app load
+        const storedToken = localStorage.getItem("auth_token");
+        if (storedToken) {
+            axios.defaults.headers.common["Authorization"] =
+                `Bearer ${storedToken}`;
+        }
+
         fetchUser();
         // set up auto-refresh every 5 minutes
         intervalRef.current = setInterval(() => {
@@ -94,6 +125,14 @@ export function AuthProvider({ children }) {
         // Sanctum SPA flow: get CSRF cookie, then post to /login
         await axios.get("/sanctum/csrf-cookie");
         const res = await axios.post("/login", { email, password });
+
+        // Store bearer token if returned
+        if (res.data.token) {
+            localStorage.setItem("auth_token", res.data.token);
+            axios.defaults.headers.common["Authorization"] =
+                `Bearer ${res.data.token}`;
+        }
+
         // After successful login, fetch user
         const user = await fetchUser();
         if (user) {
@@ -109,8 +148,10 @@ export function AuthProvider({ children }) {
         } catch (err) {
             // Ignore errors
         }
+        localStorage.removeItem("auth_token");
+        delete axios.defaults.headers.common["Authorization"];
+        isIntentionalLogoutRef.current = true;
         setUser(null);
-        addToast({ type: "info", message: "Logged out" });
     }
 
     function hasRole(role) {
@@ -123,13 +164,26 @@ export function AuthProvider({ children }) {
     // watch for session expiry: if fetchUser determines unauthenticated, notify
     useEffect(() => {
         if (user === null && !loading) {
-            // If we haven't already shown the modal, prompt re-auth
-            if (!showReauthModal) {
+            // Check if this is an intentional logout
+            if (isIntentionalLogoutRef.current) {
                 addToast({
-                    type: "warning",
-                    message: "Session expired or not authenticated",
+                    type: "info",
+                    message: "Logged out successfully",
                 });
+                isIntentionalLogoutRef.current = false;
+            } else if (!showReauthModal && !sessionToastShownRef.current) {
+                // Only show session expired for unintentional logout
+                sessionToastShownRef.current = true;
+                setTimeout(() => {
+                    addToast({
+                        type: "warning",
+                        message: "Session expired or not authenticated",
+                    });
+                }, 0);
             }
+        } else {
+            // reset when user becomes available
+            sessionToastShownRef.current = false;
         }
         // only trigger on changes to user/loading
     }, [user, loading, showReauthModal]);

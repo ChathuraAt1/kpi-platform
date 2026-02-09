@@ -13,10 +13,14 @@ class ReportingController extends Controller
     {
         $date = $request->query('date', now()->toDateString());
 
-        $users = User::all();
+        // Consider only employees / regular users for missing submissions
+        $users = User::where(function ($q) {
+            $q->whereNull('role')->orWhere('role', 'employee');
+        })->get();
+
         $missing = [];
         foreach ($users as $u) {
-            $has = TaskLog::where('user_id', $u->id)->where('date', $date)->exists();
+            $has = TaskLog::where('user_id', $u->id)->whereDate('date', $date)->exists();
             if (!$has) $missing[] = $u;
         }
 

@@ -25,20 +25,20 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerPolicies();
-        
+
         Gate::define('manageApiKeys', function ($user) {
             if (($user->role ?? '') === 'admin' || ($user->role ?? '') === 'it_admin') return true;
             return method_exists($user, 'hasRole') ? ($user->hasRole('admin') || $user->hasRole('it_admin')) : false;
         });
 
         Gate::define('manageUsers', function ($user) {
-             if (($user->role ?? '') === 'admin' || ($user->role ?? '') === 'hr') return true;
+            if (($user->role ?? '') === 'admin' || ($user->role ?? '') === 'hr') return true;
             return method_exists($user, 'hasRole') ? ($user->hasRole('admin') || $user->hasRole('hr')) : false;
         });
 
         // Evaluation-related gates
         Gate::define('manageEvaluations', function ($user) {
-             if (($user->role ?? '') === 'admin' || ($user->role ?? '') === 'hr') return true;
+            if (($user->role ?? '') === 'admin' || ($user->role ?? '') === 'hr') return true;
             return method_exists($user, 'hasRole') ? ($user->hasRole('admin') || $user->hasRole('hr')) : false;
         });
 
@@ -49,12 +49,22 @@ class AuthServiceProvider extends ServiceProvider
         });
 
         Gate::define('approveEvaluations', function ($user) {
-             if (($user->role ?? '') === 'supervisor' || ($user->role ?? '') === 'admin') return true;
+            if (($user->role ?? '') === 'supervisor' || ($user->role ?? '') === 'admin') return true;
             return method_exists($user, 'hasRole') ? ($user->hasRole('supervisor') || $user->hasRole('admin')) : false;
         });
 
         Gate::define('publishEvaluations', function ($user) {
-             if (($user->role ?? '') === 'hr' || ($user->role ?? '') === 'admin') return true;
+            if (($user->role ?? '') === 'hr' || ($user->role ?? '') === 'admin') return true;
+            return method_exists($user, 'hasRole') ? ($user->hasRole('hr') || $user->hasRole('admin')) : false;
+        });
+
+        Gate::define('manageKpiCategories', function ($user) {
+            if (($user->role ?? '') === 'hr' || ($user->role ?? '') === 'admin') return true;
+            return method_exists($user, 'hasRole') ? ($user->hasRole('hr') || $user->hasRole('admin')) : false;
+        });
+
+        Gate::define('manageJobRoles', function ($user) {
+            if (($user->role ?? '') === 'hr' || ($user->role ?? '') === 'admin') return true;
             return method_exists($user, 'hasRole') ? ($user->hasRole('hr') || $user->hasRole('admin')) : false;
         });
     }

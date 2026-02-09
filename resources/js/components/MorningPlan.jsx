@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import axios from "axios";
 
 export default function MorningPlan({ onPlanSubmitted }) {
@@ -16,6 +17,7 @@ export default function MorningPlan({ onPlanSubmitted }) {
     const [submitting, setSubmitting] = useState(false);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     useEffect(() => {
         fetchPlanInfo();
@@ -26,21 +28,27 @@ export default function MorningPlan({ onPlanSubmitted }) {
         setMessage(null);
         try {
             // 1. Check status
-            const statusRes = await axios.get(`/api/tasks/plan-status?date=${date}`);
+            const statusRes = await axios.get(
+                `/api/tasks/plan-status?date=${encodeURIComponent(date)}`,
+            );
             const finalized = statusRes.data.is_finalized;
             setIsFinalized(finalized);
 
             // 2. Fetch tasks (getPlan handles rollover suggestions if not finalized, or fixed plan if finalized)
-            const tasksRes = await axios.get(`/api/tasks/plan?date=${date}`);
+            const tasksRes = await axios.get(
+                `/api/tasks/plan?date=${encodeURIComponent(date)}`,
+            );
             if (tasksRes.data && tasksRes.data.length > 0) {
-                setRows(tasksRes.data.map(t => ({
-                    id: t.id,
-                    title: t.title || "",
-                    priority: t.priority || "medium",
-                    due_date: t.due_date ? t.due_date.slice(0, 10) : "",
-                    assigned_by: t.metadata?.assigned_by || "Self",
-                    status: t.status || "open",
-                })));
+                setRows(
+                    tasksRes.data.map((t) => ({
+                        id: t.id,
+                        title: t.title || "",
+                        priority: t.priority || "medium",
+                        due_date: t.due_date ? t.due_date.slice(0, 10) : "",
+                        assigned_by: t.metadata?.assigned_by || "Self",
+                        status: t.status || "open",
+                    })),
+                );
             } else {
                 setRows([
                     {
@@ -54,6 +62,23 @@ export default function MorningPlan({ onPlanSubmitted }) {
             }
         } catch (e) {
             console.error("Failed to fetch plan info", e);
+            const status = e.response?.status;
+            if (status === 404) {
+                setMessage("No plan found for this date.");
+                setRows([
+                    {
+                        title: "",
+                        priority: "medium",
+                        due_date: "",
+                        assigned_by: "Self",
+                        status: "open",
+                    },
+                ]);
+            } else if (status === 401) {
+                setMessage("Authentication required. Please sign in again.");
+            } else {
+                setMessage("Failed to fetch plan info.");
+            }
         } finally {
             setLoading(false);
         }
@@ -84,15 +109,19 @@ export default function MorningPlan({ onPlanSubmitted }) {
         if (isFinalized) return;
         const next = rows.slice();
         next.splice(idx, 1);
-        setRows(next.length ? next : [
-            {
-                title: "",
-                priority: "medium",
-                due_date: "",
-                assigned_by: "Self",
-                status: "open",
-            }
-        ]);
+        setRows(
+            next.length
+                ? next
+                : [
+                      {
+                          title: "",
+                          priority: "medium",
+                          due_date: "",
+                          assigned_by: "Self",
+                          status: "open",
+                      },
+                  ],
+        );
     }
 
     async function submit() {
@@ -106,153 +135,469 @@ export default function MorningPlan({ onPlanSubmitted }) {
             if (onPlanSubmitted) onPlanSubmitted();
         } catch (e) {
             console.error(e);
-            setMessage("Failed to submit plan. " + (e.response?.data?.message || e.message));
+            setMessage(
+                "Failed to submit plan. " +
+                    (e.response?.data?.message || e.message),
+            );
         } finally {
             setSubmitting(false);
         }
     }
 
     return (
-        <div className="bg-white/80 backdrop-blur-md shadow-lg rounded-xl p-6 border border-white/20">
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <div>
-                        <h2 className="text-xl font-bold bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Morning Plan (To-Do List)</h2>
-                        <p className="text-sm text-gray-500">Plan your tasks for the day</p>
-                    </div>
-                    {isFinalized && (
-                        <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            Finalized
-                        </span>
-                    )}
-                </div>
-                <div>
-                    <input
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        className="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
-                    />
-                </div>
-            </div>
+        <>
+            <div className="flex flex-col h-full">
+                {/* Hidden expand trigger */}
+                <button
+                    data-morning-plan-expand
+                    onClick={() => setIsExpanded(true)}
+                    className="hidden"
+                />
 
-            <div className="overflow-x-auto relative">
-                {loading && (
-                    <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-10 rounded-lg">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    </div>
-                )}
-                <table className="w-full text-sm text-left text-gray-500">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50/50">
-                        <tr>
-                            <th className="px-4 py-3">Task Description</th>
-                            <th className="px-4 py-3 w-32">Priority</th>
-                            <th className="px-4 py-3 w-32">Due Date</th>
-                            <th className="px-4 py-3 w-40">Assigned By</th>
-                            {!isFinalized && <th className="px-1 py-3 w-10"></th>}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.map((r, idx) => (
-                            <tr key={idx} className="bg-white border-b hover:bg-gray-50 transition-colors">
-                                <td className="px-4 py-2">
-                                    <input
-                                        className={`w-full bg-transparent border-0 border-b-2 ${isFinalized ? 'border-transparent cursor-default' : 'border-gray-100 focus:border-blue-500'} focus:ring-0 px-0 py-1 transition-colors`}
-                                        value={r.title}
-                                        onChange={(e) => updateRow(idx, "title", e.target.value)}
-                                        placeholder={isFinalized ? "" : "What needs to be done?"}
-                                        readOnly={isFinalized}
-                                    />
-                                </td>
-                                <td className="px-4 py-2">
-                                    <select
-                                        className={`block w-full p-1 text-xs rounded border ${isFinalized ? 'border-transparent bg-transparent pointer-events-none appearance-none font-medium' : 'bg-gray-50 border-gray-200'} ${r.priority === 'high' ? 'text-red-600' :
-                                            r.priority === 'medium' ? 'text-yellow-600' :
-                                                'text-green-600'
-                                            }`}
-                                        value={r.priority}
-                                        onChange={(e) => updateRow(idx, "priority", e.target.value)}
-                                        disabled={isFinalized}
-                                    >
-                                        <option value="low">Low</option>
-                                        <option value="medium">Medium</option>
-                                        <option value="high">High</option>
-                                    </select>
-                                </td>
-                                <td className="px-4 py-2">
-                                    <input
-                                        type={isFinalized ? "text" : "date"}
-                                        className={`text-xs rounded block w-full p-1 ${isFinalized ? 'bg-transparent border-transparent' : 'bg-gray-50 border-gray-200'}`}
-                                        value={r.due_date}
-                                        onChange={(e) => updateRow(idx, "due_date", e.target.value)}
-                                        readOnly={isFinalized}
-                                    />
-                                </td>
-                                <td className="px-4 py-2">
-                                    <input
-                                        type="text"
-                                        className={`text-xs rounded block w-full p-1 ${isFinalized ? 'bg-transparent border-transparent' : 'bg-gray-50 border-gray-200'}`}
-                                        value={r.assigned_by}
-                                        onChange={(e) => updateRow(idx, "assigned_by", e.target.value)}
-                                        placeholder="Self"
-                                        readOnly={isFinalized}
-                                    />
-                                </td>
+                <div className="flex-1 overflow-auto scrollbar-hide">
+                    {loading && (
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center z-20">
+                            <div className="w-8 h-8 border-3 border-orange-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+                        </div>
+                    )}
+
+                    <table className="w-full border-separate border-spacing-0">
+                        <thead>
+                            <tr className="bg-slate-50">
+                                <th className="px-3 py-2 text-[10px] font-black text-neutral-500 uppercase tracking-widest text-left border-b border-slate-100">
+                                    Objective
+                                </th>
+                                <th className="px-3 py-2 text-[10px] font-black text-neutral-500 uppercase tracking-widest text-center border-b border-slate-100 w-24">
+                                    Urgency
+                                </th>
                                 {!isFinalized && (
-                                    <td className="px-4 py-2 text-right">
-                                        <button
-                                            className="text-gray-300 hover:text-red-500 transition-colors"
-                                            onClick={() => removeRow(idx)}
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 000-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                            </svg>
-                                        </button>
-                                    </td>
+                                    <th className="px-2 py-2 border-b border-slate-100 w-10"></th>
                                 )}
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {rows.map((r, idx) => (
+                                <tr
+                                    key={idx}
+                                    className="group hover:bg-neutral-50/50 transition-all"
+                                >
+                                    <td className="px-3 py-2">
+                                        <textarea
+                                            className={`w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-bold text-neutral-700 placeholder:text-slate-300 resize-none overflow-hidden ${isFinalized ? "opacity-70" : ""}`}
+                                            value={r.title || ""}
+                                            onChange={(e) => {
+                                                updateRow(
+                                                    idx,
+                                                    "title",
+                                                    e.target.value,
+                                                );
+                                                e.target.style.height = "auto";
+                                                e.target.style.height =
+                                                    e.target.scrollHeight +
+                                                    "px";
+                                            }}
+                                            onInput={(e) => {
+                                                e.target.style.height = "auto";
+                                                e.target.style.height =
+                                                    e.target.scrollHeight +
+                                                    "px";
+                                            }}
+                                            placeholder="Enter goal..."
+                                            readOnly={isFinalized}
+                                            rows={1}
+                                        />
+                                        {!isFinalized && (
+                                            <div className="h-px w-0 group-focus-within:w-full bg-orange-500/30 transition-all duration-500"></div>
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <select
+                                            className={`w-full bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-center focus:ring-0 p-0 ${
+                                                r.priority === "high"
+                                                    ? "text-rose-500"
+                                                    : r.priority === "medium"
+                                                      ? "text-amber-500"
+                                                      : "text-emerald-500"
+                                            }`}
+                                            value={r.priority}
+                                            onChange={(e) =>
+                                                updateRow(
+                                                    idx,
+                                                    "priority",
+                                                    e.target.value,
+                                                )
+                                            }
+                                            disabled={isFinalized}
+                                        >
+                                            <option value="low">Low</option>
+                                            <option value="medium">
+                                                Medium
+                                            </option>
+                                            <option value="high">High</option>
+                                        </select>
+                                    </td>
+                                    {!isFinalized && (
+                                        <td className="px-2 py-3 text-center">
+                                            <button
+                                                className="text-slate-300 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-rose-50"
+                                                onClick={() => removeRow(idx)}
+                                            >
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    className="h-3.5 w-3.5"
+                                                    viewBox="0 0 20 20"
+                                                    fill="currentColor"
+                                                >
+                                                    <path
+                                                        fillRule="evenodd"
+                                                        d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                                        clipRule="evenodd"
+                                                    />
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    )}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
-            <div className="mt-6 flex items-center justify-between">
-                {!isFinalized ? (
-                    <button
-                        className="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center gap-1 transition-colors group"
-                        onClick={addRow}
-                    >
-                        <div className="w-5 h-5 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
-                            </svg>
+                <div className="mt-6 space-y-4">
+                    {!isFinalized ? (
+                        <div className="flex flex-col gap-4">
+                            <button
+                                className="group flex items-center justify-center gap-2 py-3 border-2 border-dashed border-neutral-200 hover:border-orange-300 hover:bg-indigo-50/30 rounded-2xl transition-all text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-orange-600"
+                                onClick={addRow}
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-3 w-3"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={4}
+                                        d="M12 4v16m8-8H4"
+                                    />
+                                </svg>
+                                Insert Goal
+                            </button>
+
+                            <button
+                                className="w-full py-4 bg-neutral-900 border border-slate-900 hover:bg-orange-600 hover:border-indigo-600 text-white rounded-4xl transition-all shadow-xl hover:shadow-orange-500/20 active:scale-[0.98] text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3"
+                                onClick={submit}
+                                disabled={submitting || loading}
+                            >
+                                {submitting ? (
+                                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                ) : (
+                                    <svg
+                                        className="w-4 h-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2.5}
+                                            d="M5 13l4 4L19 7"
+                                        />
+                                    </svg>
+                                )}
+                                {submitting ? "Processing..." : "Commit Plan"}
+                            </button>
                         </div>
-                        Add Task
-                    </button>
-                ) : (
-                    <div className="text-[11px] text-gray-400 font-medium italic">
-                        Plan finalized. View actual progress in the Task Log.
-                    </div>
-                )}
-
-                <div className="flex items-center gap-4">
-                    {message && (
-                        <div className={`text-xs font-medium ${message.includes('successfully') || message.includes('finalized') ? 'text-green-600' : 'text-red-600'}`}>{message}</div>
+                    ) : (
+                        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-3xl flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0">
+                                <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={3}
+                                        d="M5 13l4 4L19 7"
+                                    />
+                                </svg>
+                            </div>
+                            <p className="text-[11px] font-black text-emerald-800 uppercase tracking-wider leading-tight">
+                                Structure finalized.
+                                <br />
+                                <span className="text-[10px] text-emerald-600/70">
+                                    Execution Phase Active
+                                </span>
+                            </p>
+                        </div>
                     )}
-                    {!isFinalized && (
-                        <button
-                            className="bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium py-2 px-6 rounded-lg shadow-md transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                            onClick={submit}
-                            disabled={submitting || loading}
+
+                    {message && (
+                        <div
+                            className={`text-[10px] font-black uppercase tracking-widest text-center ${message.includes("success") || message.includes("finalized") ? "text-emerald-600" : "text-rose-600"}`}
                         >
-                            {submitting ? "Submitting..." : "Finalize Plan"}
-                        </button>
+                            {message}
+                        </div>
                     )}
                 </div>
             </div>
-        </div>
+
+            {/* Expand Modal */}
+            {isExpanded &&
+                createPortal(
+                    <div
+                        className="fixed inset-0 bg-neutral-900/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-6"
+                        onClick={() => setIsExpanded(false)}
+                    >
+                        <div
+                            className="bg-white rounded-4xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-2xl font-black text-neutral-900">
+                                        Morning Plan
+                                    </h2>
+                                    <p className="text-xs text-neutral-400 font-bold uppercase tracking-widest mt-1">
+                                        Expanded View
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setIsExpanded(false)}
+                                    className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-all"
+                                >
+                                    <svg
+                                        className="w-5 h-5 text-slate-600"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M6 18L18 6M6 6l12 12"
+                                        />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div className="p-6 overflow-auto max-h-[calc(90vh-140px)]">
+                                {/* Same content as main view */}
+                                <div className="flex flex-col h-full">
+                                    <div className="flex-1 overflow-auto scrollbar-hide">
+                                        <table className="w-full border-separate border-spacing-0">
+                                            <thead>
+                                                <tr className="bg-slate-50">
+                                                    <th className="px-4 py-3 text-[10px] font-black text-neutral-500 uppercase tracking-widest text-left border-b border-slate-100">
+                                                        Objective
+                                                    </th>
+                                                    <th className="px-4 py-3 text-[10px] font-black text-neutral-500 uppercase tracking-widest text-center border-b border-slate-100 w-32">
+                                                        Urgency
+                                                    </th>
+                                                    {!isFinalized && (
+                                                        <th className="px-2 py-3 border-b border-slate-100 w-12"></th>
+                                                    )}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50">
+                                                {rows.map((r, idx) => (
+                                                    <tr
+                                                        key={idx}
+                                                        className="group hover:bg-neutral-50/50 transition-all"
+                                                    >
+                                                        <td className="px-4 py-3">
+                                                            <textarea
+                                                                className={`w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-bold text-neutral-700 placeholder:text-slate-300 resize-none overflow-hidden ${isFinalized ? "opacity-70" : ""}`}
+                                                                value={
+                                                                    r.title ||
+                                                                    ""
+                                                                }
+                                                                onChange={(
+                                                                    e,
+                                                                ) => {
+                                                                    updateRow(
+                                                                        idx,
+                                                                        "title",
+                                                                        e.target
+                                                                            .value,
+                                                                    );
+                                                                    e.target.style.height =
+                                                                        "auto";
+                                                                    e.target.style.height =
+                                                                        e.target
+                                                                            .scrollHeight +
+                                                                        "px";
+                                                                }}
+                                                                onInput={(
+                                                                    e,
+                                                                ) => {
+                                                                    e.target.style.height =
+                                                                        "auto";
+                                                                    e.target.style.height =
+                                                                        e.target
+                                                                            .scrollHeight +
+                                                                        "px";
+                                                                }}
+                                                                placeholder="Enter goal..."
+                                                                readOnly={
+                                                                    isFinalized
+                                                                }
+                                                                rows={1}
+                                                            />
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <select
+                                                                className={`w-full bg-transparent border-none text-[10px] font-black uppercase tracking-widest text-center focus:ring-0 p-0 ${r.priority === "high" ? "text-rose-500" : r.priority === "medium" ? "text-amber-500" : "text-emerald-500"}`}
+                                                                value={
+                                                                    r.priority
+                                                                }
+                                                                onChange={(e) =>
+                                                                    updateRow(
+                                                                        idx,
+                                                                        "priority",
+                                                                        e.target
+                                                                            .value,
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    isFinalized
+                                                                }
+                                                            >
+                                                                <option value="low">
+                                                                    Low
+                                                                </option>
+                                                                <option value="medium">
+                                                                    Medium
+                                                                </option>
+                                                                <option value="high">
+                                                                    High
+                                                                </option>
+                                                            </select>
+                                                        </td>
+                                                        {!isFinalized && (
+                                                            <td className="px-2 py-3 text-center">
+                                                                <button
+                                                                    className="text-slate-300 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-rose-50"
+                                                                    onClick={() =>
+                                                                        removeRow(
+                                                                            idx,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <svg
+                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                        className="h-3.5 w-3.5"
+                                                                        viewBox="0 0 20 20"
+                                                                        fill="currentColor"
+                                                                    >
+                                                                        <path
+                                                                            fillRule="evenodd"
+                                                                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                                                            clipRule="evenodd"
+                                                                        />
+                                                                    </svg>
+                                                                </button>
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div className="mt-8 space-y-6">
+                                        {!isFinalized ? (
+                                            <div className="flex flex-col gap-4">
+                                                <button
+                                                    className="group flex items-center justify-center gap-2 py-3 border-2 border-dashed border-neutral-200 hover:border-orange-300 hover:bg-indigo-50/30 rounded-2xl transition-all text-[10px] font-black uppercase tracking-widest text-neutral-400 hover:text-orange-600"
+                                                    onClick={addRow}
+                                                >
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        className="h-3 w-3"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        stroke="currentColor"
+                                                    >
+                                                        <path
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            strokeWidth={4}
+                                                            d="M12 4v16m8-8H4"
+                                                        />
+                                                    </svg>
+                                                    Insert Goal
+                                                </button>
+                                                <button
+                                                    className="w-full py-4 bg-neutral-900 border border-slate-900 hover:bg-orange-600 hover:border-indigo-600 text-white rounded-4xl transition-all shadow-xl hover:shadow-orange-500/20 active:scale-[0.98] text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3"
+                                                    onClick={submit}
+                                                    disabled={
+                                                        submitting || loading
+                                                    }
+                                                >
+                                                    {submitting ? (
+                                                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                                    ) : (
+                                                        <svg
+                                                            className="w-4 h-4"
+                                                            fill="none"
+                                                            viewBox="0 0 24 24"
+                                                            stroke="currentColor"
+                                                        >
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth={
+                                                                    2.5
+                                                                }
+                                                                d="M5 13l4 4L19 7"
+                                                            />
+                                                        </svg>
+                                                    )}
+                                                    {submitting
+                                                        ? "Processing..."
+                                                        : "Commit Plan"}
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-3xl flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0">
+                                                    <svg
+                                                        className="w-4 h-4"
+                                                        fill="none"
+                                                        viewBox="0 0 24 24"
+                                                        stroke="currentColor"
+                                                    >
+                                                        <path
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            strokeWidth={3}
+                                                            d="M5 13l4 4L19 7"
+                                                        />
+                                                    </svg>
+                                                </div>
+                                                <p className="text-[11px] font-black text-emerald-800 uppercase tracking-wider leading-tight">
+                                                    Structure finalized.
+                                                    <br />
+                                                    <span className="text-[10px] text-emerald-600/70">
+                                                        Execution Phase Active
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>,
+                    document.body,
+                )}
+        </>
     );
 }

@@ -189,7 +189,7 @@ erDiagram
 - `users` — standard Laravel users with `settings` JSON (shift start/end, breaks override)
 - `roles` / `permissions` — use `spatie/laravel-permission`
 - `tasks` — planned work items; supports parent/child, assignee, planned hours, kpi_category link
-- `task_logs` — daily submissions (one or more rows per day). Key: `user_id`, `date`, `duration_hours`, `description`, `kpi_category_id`, `llm_suggestion` (json), `status` (pending/approved/rejected)
+- `task_logs` — daily submissions (one or more rows per day). Key: `user_id`, `date`, `duration_hours` (computed server-side), `description`, `kpi_category_id`, `llm_suggestion` (json), `status` (pending/approved/rejected)
 - `todos` — per-user todo items (for planning)
 - `kpi_categories` — category definitions, weights, description
 - `monthly_evaluations` — stored evaluation result per user/month with `breakdown` JSON
@@ -544,7 +544,7 @@ This section expands the spec with exact product requirements described by the s
 - Two submissions per workday:
     - Morning (Plan): employee submits planned to-dos for the day (may include unfinished carry-over tasks).
     - Evening (Actual): employee submits actual task logs with worked durations and completion percentage.
-- Required fields per log row: `task_id` (optional), `title` (if new task), `start_time`, `end_time`, `duration_hours`, `description`, `priority` (low|medium|high|urgent), `assigned_by` (user id), `completion_percentage` (0-100), `attachments` (optional).
+- Required fields per log row: `task_id` (optional), `title` (if new task), `start_time`, `end_time` (server will compute `duration_hours`), `description`, `priority` (low|medium|high|urgent), `assigned_by` (user id), `completion_percentage` (0-100), `attachments` (optional).
 - Validation rules:
     - `start_time` < `end_time` and `duration_hours` equals difference (allow minor rounding tolerance).
     - Sum of `duration_hours` per day must not exceed configured shift working minutes (default workday length minus breaks).
@@ -557,7 +557,7 @@ This section expands the spec with exact product requirements described by the s
     - Any task with `completion_percentage` < 100 at day's end is automatically copied into the next morning's plan (status: unfinished).
     - New tasks created after the morning plan are accepted during evening submission and added to the task registry.
 
-    18.2 Shift & Breaks configuration
+        18.2 Shift & Breaks configuration
 
 - Default company shift: weekdays 08:30–17:30 with breaks at 10:30–10:50, 13:00–14:00, 16:00–16:20.
 - Per-user overrides: each user has `settings.shift` JSON with `start`, `end`, and `breaks` array. Overrides validated against company policy.
@@ -570,15 +570,15 @@ This section expands the spec with exact product requirements described by the s
     - Create/edit/delete tasks, set recurring tasks, bulk import from CSV/Excel.
     - View per-employee to-do progress in a dashboard (planned vs actual hours, completion %).
 
-    18.4 KPI categories and role-based configuration
+        18.4 KPI categories and role-based configuration
 
 - KPI categories are created and managed by management/HR. Each category has `name`, `description`, and default `weight`.
 - Role-specific configuration:
     - For each job role, managers set a per-category weight map. Weights are normalized during calculations.
     - A default role profile is available and can be cloned/modified.
 
-    18.5 KPI calculation algorithm (detailed)
-    The system computes per-category and overall KPI scores monthly. The default formulas below are configurable by management.
+        18.5 KPI calculation algorithm (detailed)
+        The system computes per-category and overall KPI scores monthly. The default formulas below are configurable by management.
 
 - Per-task score:
     - Let p = `completion_percentage` (0..100), w_task = `priority_weight` (map: low=1, medium=2, high=3, urgent=4 by default), then task_score_raw = p/100 \* w_task.
@@ -620,7 +620,7 @@ Example (numeric):
     - Batch jobs should group entries per-user and trim descriptions to reduce tokens; include examples for categories in prompts.
     - Store raw LLM response and parsed scores for audit and retraining.
 
-    18.7 API-Key repository & provider failover
+        18.7 API-Key repository & provider failover
 
 - Each `api_keys` entry: `provider`, `name`, `encrypted_key`, `meta` (model, endpoint, region), `priority`, `daily_quota`, `daily_usage`, `status` (active,degraded,revoked).
 - Selection rules:
@@ -636,7 +636,7 @@ Example (numeric):
     - Each user can have a `supervisor_id`. Supervisors themselves are users and can be assigned supervisors (hierarchical).
     - Supervisors and HR also get KPIs computed by same process; they appear in manager dashboards for review.
 
-    18.9 Notifications, approvals & SLA
+        18.9 Notifications, approvals & SLA
 
 - Notifications: email, in-app, Slack/Teams webhook. Triggers: missing submission reminders, approval requests, evaluation published, API key health alerts.
 - Approval SLA: managers should review pending submissions within 48 hours; overdue approval triggers escalation to manager's supervisor and HR.

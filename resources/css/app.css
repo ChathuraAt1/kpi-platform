@@ -8,4 +8,78 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Orange & Black Color Scheme */
+    --color-orange-50: #fff7ed;
+    --color-orange-100: #ffedd5;
+    --color-orange-200: #fed7aa;
+    --color-orange-300: #fdba74;
+    --color-orange-400: #fb923c;
+    --color-orange-500: #f97316;
+    --color-orange-600: #ea580c;
+    --color-orange-700: #c2410c;
+    --color-orange-800: #9a3412;
+    --color-orange-900: #7c2d12;
+
+    --color-black: #0a0a0a;
+    --color-gray-50: #f9f9f9;
+    --color-gray-100: #f3f3f3;
+    --color-gray-200: #e8e8e8;
+    --color-gray-300: #d9d9d9;
+    --color-gray-400: #b8b8b8;
+    --color-gray-500: #7d7d7d;
+    --color-gray-600: #5a5a5a;
+    --color-gray-700: #3d3d3d;
+    --color-gray-800: #2a2a2a;
+    --color-gray-900: #1a1a1a;
+    --color-white: #ffffff;
+
+    /* Compact spacing */
+    --spacing-0: 0px;
+    --spacing-1: 2px;
+    --spacing-2: 4px;
+    --spacing-3: 6px;
+    --spacing-4: 8px;
+    --spacing-5: 10px;
+    --spacing-6: 12px;
+    --spacing-8: 16px;
+    --spacing-10: 20px;
+    --spacing-12: 24px;
+    --spacing-16: 32px;
+    --spacing-20: 40px;
+    --spacing-24: 48px;
+
+    /* Reduced border radius */
+    --radius-none: 0px;
+    --radius-sm: 2px;
+    --radius-base: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --radius-xl: 10px;
+    --radius-2xl: 12px;
+    --radius-3xl: 16px;
+}
+
+/* Dark mode support */
+@layer base {
+    :root {
+        color-scheme: light;
+    }
+
+    :root.dark {
+        color-scheme: dark;
+    }
+
+    /* Custom scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        @apply bg-gray-100 dark:bg-gray-800;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        @apply bg-gray-400 dark:bg-gray-600 rounded-lg;
+    }
 }

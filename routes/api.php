@@ -33,6 +33,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('api-keys', ApiKeyController::class);
     Route::post('api-keys/health-check', [ApiKeyController::class, 'healthCheckAll'])->middleware('can:manageApiKeys');
+
+    // API Key quota management routes
+    Route::get('api-keys/{id}/quota-status', [ApiKeyController::class, 'getQuotaStatus'])->middleware('can:manageApiKeys');
+    Route::get('api-keys/{id}/usage-history', [ApiKeyController::class, 'getUsageHistory'])->middleware('can:manageApiKeys');
+    Route::get('api-keys/available-models', [ApiKeyController::class, 'getAvailableModels'])->middleware('can:manageApiKeys');
+    Route::post('api-keys/{id}/verify-models', [ApiKeyController::class, 'verifyKeyModels'])->middleware('can:manageApiKeys');
+    Route::post('api-keys/{id}/rotate', [ApiKeyController::class, 'rotateKey'])->middleware('can:manageApiKeys');
+
     Route::post('evaluations/trigger', [\App\Http\Controllers\Api\EvaluationController::class, 'trigger'])->middleware('can:manageEvaluations');
     Route::get('evaluations', [\App\Http\Controllers\Api\EvaluationController::class, 'list'])->middleware('can:viewEvaluations');
     // Deprecated: evaluation approve endpoint removed — supervisor scoring handled via other flows
@@ -43,9 +51,38 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('users/{id}', [\App\Http\Controllers\Api\UserController::class, 'update'])->middleware('can:manageUsers');
     Route::get('users/{id}/progress', [\App\Http\Controllers\Api\UserController::class, 'progress'])->middleware('auth');
 
+    // Role and permission management
+    Route::prefix('roles')->middleware('can:manageUsers')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\RolePermissionController::class, 'getAllRolesWithPermissions']);
+        Route::get('{role}/permissions', [\App\Http\Controllers\Api\RolePermissionController::class, 'getRolePermissions']);
+        Route::put('{role}/permissions', [\App\Http\Controllers\Api\RolePermissionController::class, 'updateRolePermissions']);
+        Route::post('{role}/permissions/{permission}/enable', [\App\Http\Controllers\Api\RolePermissionController::class, 'enablePermission']);
+        Route::post('{role}/permissions/{permission}/disable', [\App\Http\Controllers\Api\RolePermissionController::class, 'disablePermission']);
+
+        Route::get('{role}/features', [\App\Http\Controllers\Api\RolePermissionController::class, 'getRoleFeatures']);
+        Route::post('{role}/features/{feature}/enable', [\App\Http\Controllers\Api\RolePermissionController::class, 'enableFeature']);
+        Route::post('{role}/features/{feature}/disable', [\App\Http\Controllers\Api\RolePermissionController::class, 'disableFeature']);
+    });
+
+    // User-specific permissions
+    Route::prefix('user-permissions')->middleware('can:manageUsers')->group(function () {
+        Route::get('{user}/permissions', [\App\Http\Controllers\Api\RolePermissionController::class, 'getUserPermissions']);
+        Route::post('{user}/grant', [\App\Http\Controllers\Api\RolePermissionController::class, 'grantUserPermission']);
+        Route::post('{user}/revoke', [\App\Http\Controllers\Api\RolePermissionController::class, 'revokeUserPermission']);
+        Route::post('{user}/reset', [\App\Http\Controllers\Api\RolePermissionController::class, 'resetUserPermissions']);
+    });
+
+    // Audit logs
+    Route::get('permissions/audit-log', [\App\Http\Controllers\Api\RolePermissionController::class, 'getPermissionAuditLog'])->middleware('can:manageUsers');
+
     // admin reports
     Route::get('submissions/missing', [\App\Http\Controllers\Api\ReportingController::class, 'missingSubmissions'])->middleware('can:manageUsers');
     Route::get('submissions/trend', [\App\Http\Controllers\Api\ReportingController::class, 'submissionTrend'])->middleware('can:manageUsers');
+    Route::get('submissions/today', [\App\Http\Controllers\Api\ReportingController::class, 'submissionStatusToday'])->middleware('can:manageUsers');
+    Route::get('api-keys/health', [\App\Http\Controllers\Api\ReportingController::class, 'apiKeyHealth'])->middleware('can:manageApiKeys');
+    Route::get('llm/classification-stats', [\App\Http\Controllers\Api\ReportingController::class, 'llmClassificationStats'])->middleware('can:manageUsers');
+    Route::get('dashboard/metrics', [\App\Http\Controllers\Api\ReportingController::class, 'adminDashboardMetrics'])->middleware('can:manageUsers');
+    Route::get('audit-logs/summary', [\App\Http\Controllers\Api\ReportingController::class, 'auditLogSummary'])->middleware('can:manageUsers');
 
     Route::get('global-settings', [\App\Http\Controllers\Api\GlobalSettingController::class, 'index']);
     Route::put('global-settings/{key}', [\App\Http\Controllers\Api\GlobalSettingController::class, 'update']);

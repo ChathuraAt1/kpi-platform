@@ -24,6 +24,7 @@ import HierarchyManagement from "./pages/HierarchyManagement";
 import SupervisorTeamLogs from "./pages/SupervisorTeamLogs";
 import ComprehensiveLogsAssessment from "./pages/ComprehensiveLogsAssessment";
 import EmployeeTaskLogs from "./pages/EmployeeTaskLogs";
+import RolePermissionsPage from "./pages/RolePermissionsPage";
 import { ToastProvider } from "./contexts/ToastContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -159,6 +160,15 @@ function App() {
                                             roles={["admin", "it_admin"]}
                                         >
                                             <UsersPage />
+                                        </ProtectedRoute>
+                                    }
+                                />
+
+                                <Route
+                                    path="/admin/permissions"
+                                    element={
+                                        <ProtectedRoute roles={["admin"]}>
+                                            <RolePermissionsPage />
                                         </ProtectedRoute>
                                     }
                                 />

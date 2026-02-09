@@ -31,6 +31,9 @@ class User extends Authenticatable
         'work_end_time',
         'breaks',
         'timezone',
+        'custom_permissions',
+        'disabled_permissions',
+        'permissions_last_updated_at',
     ];
 
     /**
@@ -54,6 +57,9 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'breaks' => 'array',
+            'custom_permissions' => 'array',
+            'disabled_permissions' => 'array',
+            'permissions_last_updated_at' => 'datetime',
         ];
     }
 
@@ -376,5 +382,156 @@ class User extends Authenticatable
                 'submitted_at' => $eval->created_at,
             ];
         })->toArray();
+    }
+
+    /**
+     * Check if user has a specific permission
+     * Checks: role permissions, user custom permissions, disabled permissions
+     */
+    public function hasPermission(string $permission): bool
+    {
+        // Admins always have all permissions
+        if ($this->hasRole('admin')) {
+            return true;
+        }
+
+        // Check if permission is in user's disabled list
+        if ($this->disabled_permissions && in_array($permission, $this->disabled_permissions)) {
+            return false;
+        }
+
+        // Check user's custom permissions (override role defaults)
+        if ($this->custom_permissions && in_array($permission, $this->custom_permissions)) {
+            return true;
+        }
+
+        // Check role-based permissions
+        return RolePermission::roleHasPermission($this->role, $permission);
+    }
+
+    /**
+     * Get all permissions for this user's role
+     */
+    public function getRolePermissions(): array
+    {
+        $rolePerms = RolePermission::getPermissionsForRole($this->role);
+
+        // Apply overrides: remove disabled, add custom
+        $permissions = $rolePerms;
+
+        if ($this->disabled_permissions) {
+            $permissions = array_diff($permissions, (array)$this->disabled_permissions);
+        }
+
+        if ($this->custom_permissions) {
+            $permissions = array_unique(array_merge($permissions, (array)$this->custom_permissions));
+        }
+
+        return $permissions;
+    }
+
+    /**
+     * Check if user has a specific feature enabled
+     */
+    public function hasFeature(string $feature): bool
+    {
+        // Admins have all features
+        if ($this->hasRole('admin')) {
+            return true;
+        }
+
+        return RoleFeature::roleHasFeature($this->role, $feature);
+    }
+
+    /**
+     * Get feature settings for user's role
+     */
+    public function getFeatureSettings(string $feature): ?array
+    {
+        return RoleFeature::getFeatureSettings($this->role, $feature);
+    }
+
+    /**
+     * Grant a custom permission to this user (override role default)
+     */
+    public function grantPermission(string $permission): void
+    {
+        $custom = $this->custom_permissions ?? [];
+
+        if (!in_array($permission, $custom)) {
+            $custom[] = $permission;
+        }
+
+        $disabled = $this->disabled_permissions ?? [];
+        if (($key = array_search($permission, $disabled)) !== false) {
+            unset($disabled[$key]);
+        }
+
+        $this->custom_permissions = array_values(array_unique($custom));
+        $this->disabled_permissions = array_values(array_unique($disabled));
+        $this->permissions_last_updated_at = now();
+        $this->save();
+    }
+
+    /**
+     * Revoke a custom permission from this user
+     */
+    public function revokePermission(string $permission): void
+    {
+        $custom = $this->custom_permissions ?? [];
+        if (($key = array_search($permission, $custom)) !== false) {
+            unset($custom[$key]);
+        }
+
+        $disabled = $this->disabled_permissions ?? [];
+        if (!in_array($permission, $disabled)) {
+            $disabled[] = $permission;
+        }
+
+        $this->custom_permissions = array_values(array_unique($custom));
+        $this->disabled_permissions = array_values(array_unique($disabled));
+        $this->permissions_last_updated_at = now();
+        $this->save();
+    }
+
+    /**
+     * Reset user's custom permissions back to role defaults
+     */
+    public function resetPermissionsToRoleDefaults(): void
+    {
+        $this->custom_permissions = null;
+        $this->disabled_permissions = null;
+        $this->permissions_last_updated_at = now();
+        $this->save();
+    }
+
+    /**
+     * Get all permissions for comparison (current vs role default)
+     */
+    public function getPermissionStatus(): array
+    {
+        $rolePerms = RolePermission::getPermissionsForRole($this->role);
+        $currentPerms = $this->getRolePermissions();
+        $allPerms = RolePermission::getAllPermissions();
+
+        return [
+            'role' => $this->role,
+            'role_permissions' => $rolePerms,
+            'current_permissions' => $currentPerms,
+            'custom_permissions' => $this->custom_permissions ?? [],
+            'disabled_permissions' => $this->disabled_permissions ?? [],
+            'added_permissions' => array_diff($currentPerms, $rolePerms),
+            'removed_permissions' => array_diff($rolePerms, $currentPerms),
+            'all_available_permissions' => $allPerms,
+        ];
+    }
+
+    /**
+     * Scope: Get active users (not inactive/deleted)
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('status', '!=', 'inactive')
+            ->whereNotNull('status');
     }
 }

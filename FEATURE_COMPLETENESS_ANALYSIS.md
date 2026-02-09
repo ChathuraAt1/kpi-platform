@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-The KPI Platform implementation is **~75% complete**. Core workflow components are in place, including deadline enforcement, customizable shifts/breaks, and weekly submission patterns. Several important features still need implementation for full Phase 0 completion.
+The KPI Platform implementation is **~80% complete**. Core workflow components are fully functional, including deadline enforcement, customizable shifts/breaks, weekly submissions, and cascading manager KPI scoring. Several important features still need implementation for full Phase 0 completion.
 
 ---
 
@@ -229,17 +229,101 @@ The KPI Platform implementation is **~75% complete**. Core workflow components a
         - complete() - plans with both submissions
         - forDate(), forUserOnDate() - filtering
 
-#### 4. **Supervisor/HR/Manager Own KPI Scoring**
+#### 4. **Supervisor/HR/Manager Own KPI Scoring** ✅ IMPLEMENTED
 
-- [ ] **Cascading KPI System** - Currently only employees have KPIs
-    - [ ] Each supervisor/HR/manager needs their own team performance score
-    - [ ] Need separate KPI categories for management roles
-    - [ ] Need score calculation based on team performance
-    - [ ] Segregated dashboards per role showing their KPI progress
-- [ ] **Task Assignment by Manager** - Incomplete
-    - [ ] Manager can assign tasks to employees
-    - [ ] Track who assigned task (`assigned_by` exists but no UI)
-    - [ ] Differentiate "self-assigned" vs "manager-assigned"
+- [x] **Cascading KPI System** - ✅ COMPLETE
+    - [x] Each supervisor/manager has their own team performance score
+        - Manager KPI calculated from team member performance (50% weight default)
+        - Plus manager's own productivity (30% weight default)
+        - Plus supervision effectiveness (20% weight default)
+    - [x] Multi-level hierarchy support (team_lead, supervisor, manager, director, hr_admin)
+    - [x] Cascading calculation: Employee KPIs roll up to manager → manager KPIs roll up to director
+    - [x] Each level has their own evaluation with aggregated team metrics
+    - [x] JobRole.getManagementHierarchyOrder() for proper calculation sequence
+
+- [x] **Separate KPI Categories for Management Roles** - ✅ COMPLETE
+    - [x] JobRole now has is_management_role flag and role_hierarchy_level field
+    - [x] Management roles can have different KPI categories than employee roles
+    - [x] User.role_specific_kpis allows overriding job role KPIs
+    - [x] User.getKpiCategories() returns appropriate categories based on role
+    - [x] JobRole.getKpiCategoriesWithWeights() includes weight configurations
+    - [x] Roles can be marked as management via markAsManagement(hierarchyLevel)
+    - [x] Query scopes: JobRole.scopeManagement(), JobRole.scopeByHierarchyLevel()
+
+- [x] **Score Calculation Based on Team Performance** - ✅ COMPLETE
+    - [x] MonthlyEvaluation.setTeamMemberScores() sets team member evaluations
+    - [x] Automatically calculates: team_member_avg_score, min_score, max_score
+    - [x] MonthlyEvaluation.calculateManagerKpi() computes overall manager KPI
+        - Formula: (teamAvg × 0.5) + (managerProductivity × 0.3) + (supervisionEff × 0.2)
+    - [x] Configurable weights via kpi_component_weights JSON field
+    - [x] MonthlyEvaluation.calculateSupervisionEffectiveness() measures management quality
+        - Based on team member improvement, engagement, task completion
+    - [x] User.getTeamAverageKpi(year, month) gets team KPI for period
+    - [x] User.calculateSupervisionEffectiveness() uses hierarchy data
+
+- [x] **Segregated Dashboards per Role** - ✅ FOUNDATIONAL COMPLETE
+    - [x] MonthlyEvaluation.isManagementEvaluation() identifies manager evaluations
+    - [x] API endpoints for manager-specific data:
+        - GET `/api/evaluations/manager-kpi-summary` - manager's team and KPI overview
+        - GET `/api/evaluations/team-performance` - team member breakdown with risk indicators
+        - POST `/api/evaluations/generate-manager-kpi` - trigger manager KPI calculation
+    - [x] MonthlyEvaluation.scopeManagement() filters for management evals only
+    - [x] MonthlyEvaluation.scopeForManagerHierarchy() gets full hierarchy for dashboard
+    - [x] Team hierarchy responses include:
+        - Member names, roles, scores, submission status
+        - Statistics: avg score, high performers count, at-risk count
+        - Min/max scores for variance analysis
+    - [x] Data structure supports differentiating employee vs manager dashboards
+    - [x] Manager dashboard data includes team avg, min, max for performance visualization
+
+- [x] **User Model Manager Methods** - ✅ COMPLETE
+    - [x] User.isManager() - checks if user has management role
+    - [x] User.getCurrentManagerKpi(year, month) - gets latest manager KPI
+    - [x] User.getTeamHierarchy(year, month) - returns team structure with evaluations
+    - [x] User.getTeamAverageKpi(year, month) - calculates team average
+    - [x] User.calculateSupervisionEffectiveness(year, month) - measures management quality
+    - [x] Existing relationship: User.subordinates() for direct reports
+    - [x] Existing method: User.getAllSubordinateIds() for full hierarchy
+
+- [x] **Database Schema for Management KPI** - ✅ COMPLETE
+    - [x] job_roles table:
+        - is_management_role (boolean) - marks role as management
+        - role_hierarchy_level (string) - position in hierarchy
+        - Index on (is_management_role, role_hierarchy_level)
+    - [x] monthly_evaluations table:
+        - team_member_avg_score - average of subordinates' scores
+        - team_member_scores (JSON) - array of team member evaluations
+        - team_member_count - number of direct reports
+        - team_member_min_score / team_member_max_score - range
+        - manager_productivity_score - manager's own productivity
+        - manager_supervision_effectiveness - management quality score
+        - team_kpi_categories (JSON) - management-specific KPI categories
+        - kpi_component_weights (JSON) - configurable calculation weights
+        - Indexes on (user_id, year, month) and team_member_avg_score
+    - [x] users table:
+        - manager_kpi_linkage (JSON) - traces contribution to manager evaluation
+        - role_specific_kpis (JSON) - role override KPI categories
+
+- [x] **API Endpoints for Manager KPI** - ✅ COMPLETE
+    - [x] GET `/api/evaluations/manager-kpi-summary?year=2026&month=2`
+        - Returns: manager info, team stats, manager KPI components, status
+    - [x] GET `/api/evaluations/team-performance?year=2026&month=2`
+        - Returns: team members list, individual scores, statistics (high performers, at-risk)
+    - [x] POST `/api/evaluations/generate-manager-kpi`
+        - Body: {year, month, manager_id (optional)}
+        - Calculates team member avg, manager productivity, supervision effectiveness
+        - Returns: manager KPI score, team count, breakdown by component
+
+- [x] **Audit Trail for Management KPI** - ✅ COMPLETE
+    - [x] AuditLog entries created when manager KPI generated
+    - [x] Tracks: team_member_count, team avg, final manager KPI score
+    - [x] Changes tracked: status, score, approval/publication
+
+- [ ] **Task Assignment by Manager** - DEFERRED (Phase 2)
+    - [ ] UI for manager to explicitly assign tasks to employees
+    - [ ] Track task.assigned_by field (infrastructure exists but no UI)
+    - [ ] Differentiate "self-assigned" vs "manager-assigned" in displays
+    - Note: Basic infrastructure in place (assigned_by field in Task model), UI implementation deferred to next phase
 
 #### 5. **Comprehensive Monthly Evaluation Workflow**
 

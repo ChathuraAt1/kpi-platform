@@ -22,7 +22,7 @@ return new class extends Migration
             $table->date('carryover_from_date')->nullable()->after('due_date');
             // Indicates this task was rolled over from the specified date
             // Used to identify "rollover" vs "new" task distinctions
-            
+
             $table->index(['owner_id', 'carryover_from_date']);
         });
 
@@ -30,7 +30,7 @@ return new class extends Migration
         Schema::table('task_logs', function (Blueprint $table) {
             $table->decimal('completion_percent_at_dayend', 5, 2)->nullable()->after('expected_work_hours');
             // Tracks completion % at end of day for carryover suggestions
-            
+
             $table->index(['user_id', 'date', 'completion_percent_at_dayend']);
         });
 
@@ -38,16 +38,16 @@ return new class extends Migration
         Schema::table('daily_plans', function (Blueprint $table) {
             $table->json('planned_task_ids')->nullable()->after('is_finalized');
             // Array of task IDs that were planned for this morning
-            
+
             $table->integer('rollover_count')->default(0)->after('planned_task_ids');
             // Count of tasks carried over from previous day
-            
+
             $table->timestamp('morning_plan_submitted_at')->nullable()->after('finalized_at');
             // When the morning plan was submitted/finalized
-            
+
             $table->timestamp('evening_log_submitted_at')->nullable()->after('morning_plan_submitted_at');
             // When the evening log submission was completed
-            
+
             $table->string('submission_status')->default('pending')->after('evening_log_submitted_at');
             // Status: pending, morning_planned, evening_logged, complete
         });

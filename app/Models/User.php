@@ -242,4 +242,139 @@ class User extends Authenticatable
 
         return round($shiftHours - $breakHours, 2);
     }
+
+    /**
+     * Check if this user has a management role
+     * (Supervisor, Manager, Director, Team Lead, HR Manager, etc.)
+     */
+    public function isManager(): bool
+    {
+        if ($this->hasRole('admin')) return true;
+        if ($this->hasRole('hr')) return true;
+        return $this->jobRole?->isManagementRole() ?? false;
+    }
+
+    /**
+     * Get KPI categories for this user based on their job role
+     * For managers, this returns their management-specific KPI categories
+     * For employees, returns standard KPI categories
+     */
+    public function getKpiCategories()
+    {
+        if (!$this->jobRole) {
+            return collect([]);
+        }
+
+        // If user has role-specific KPI overrides, use those
+        if ($this->role_specific_kpis) {
+            return collect($this->role_specific_kpis);
+        }
+
+        // Otherwise, use job role's KPI categories
+        return $this->jobRole->getKpiCategoriesWithWeights();
+    }
+
+    /**
+     * Get the monthly evaluation details for this user
+     */
+    public function getEvaluationForMonth(int $year, int $month)
+    {
+        return MonthlyEvaluation::where('user_id', $this->id)
+            ->where('year', $year)
+            ->where('month', $month)
+            ->first();
+    }
+
+    /**
+     * Get current management KPI score (from latest evaluation and team performance)
+     */
+    public function getCurrentManagerKpi($year = null, $month = null)
+    {
+        if (!$this->isManager()) {
+            return null;
+        }
+
+        $year = $year ?? now()->year;
+        $month = $month ?? now()->month;
+
+        return $this->getEvaluationForMonth($year, $month)?->calculateManagerKpi();
+    }
+
+    /**
+     * Get team members' average KPI score for manager evaluation
+     */
+    public function getTeamAverageKpi($year = null, $month = null): ?float
+    {
+        if (!$this->isManager()) {
+            return null;
+        }
+
+        $year = $year ?? now()->year;
+        $month = $month ?? now()->month;
+
+        $subordinateIds = $this->getAllSubordinateIds();
+        if (empty($subordinateIds)) {
+            return null;
+        }
+
+        $evaluations = MonthlyEvaluation::whereIn('user_id', $subordinateIds)
+            ->where('year', $year)
+            ->where('month', $month)
+            ->get();
+
+        if ($evaluations->isEmpty()) {
+            return null;
+        }
+
+        $scores = $evaluations->pluck('score')->filter()->toArray();
+        return !empty($scores) ? round(array_sum($scores) / count($scores), 2) : null;
+    }
+
+    /**
+     * Calculate this manager's supervision effectiveness
+     * Based on team member performance and engagement
+     */
+    public function calculateSupervisionEffectiveness($year = null, $month = null): float
+    {
+        $year = $year ?? now()->year;
+        $month = $month ?? now()->month;
+
+        $evaluation = $this->getEvaluationForMonth($year, $month);
+        if (!$evaluation) {
+            return 0;
+        }
+
+        return $evaluation->calculateSupervisionEffectiveness();
+    }
+
+    /**
+     * Get team hierarchy for this manager showing all subordinates
+     * Returns tree structure of direct and indirect reports
+     */
+    public function getTeamHierarchy(int $year, int $month)
+    {
+        $subordinateIds = $this->getAllSubordinateIds();
+
+        if (empty($subordinateIds)) {
+            return [];
+        }
+
+        $evaluations = MonthlyEvaluation::whereIn('user_id', $subordinateIds)
+            ->where('year', $year)
+            ->where('month', $month)
+            ->with('user')
+            ->get();
+
+        return $evaluations->map(function ($eval) {
+            return [
+                'user_id' => $eval->user_id,
+                'name' => $eval->user->name,
+                'role' => $eval->user->role,
+                'job_role' => $eval->user->jobRole?->name,
+                'score' => $eval->score,
+                'breakdown' => $eval->breakdown,
+                'submitted_at' => $eval->created_at,
+            ];
+        })->toArray();
+    }
 }

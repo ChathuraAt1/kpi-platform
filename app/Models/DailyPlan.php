@@ -45,7 +45,7 @@ class DailyPlan extends Model
         $this->morning_plan_submitted_at = now();
         $this->planned_task_ids = $plannedTaskIds;
         $this->submission_status = 'morning_planned';
-        
+
         return $this;
     }
 
@@ -58,7 +58,7 @@ class DailyPlan extends Model
         $this->evening_log_submitted_at = now();
         $this->submission_status = 'evening_logged';
         $this->submission_status = 'complete'; // Mark as fully submitted for the day
-        
+
         return $this;
     }
 
@@ -150,4 +150,3 @@ class DailyPlan extends Model
         return $query->where('user_id', $userId)->whereDate('date', $date);
     }
 }
-

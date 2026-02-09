@@ -34,6 +34,7 @@ class TaskLog extends Model
         'breaks_used',
         'actual_break_duration',
         'time_in_work',
+        'completion_percent_at_dayend',
     ];
 
     protected $casts = [
@@ -51,6 +52,7 @@ class TaskLog extends Model
         'breaks_used' => 'array',
         'actual_break_duration' => 'decimal:2',
         'time_in_work' => 'decimal:2',
+        'completion_percent_at_dayend' => 'decimal:2',
     ];
 
     public function task()

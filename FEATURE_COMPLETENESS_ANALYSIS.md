@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-The KPI Platform implementation is **~70% complete**. Core workflow components are in place, including customizable shift/break times. Several important features still need implementation for full Phase 0 completion.
+The KPI Platform implementation is **~75% complete**. Core workflow components are in place, including deadline enforcement, customizable shifts/breaks, and weekly submission patterns. Several important features still need implementation for full Phase 0 completion.
 
 ---
 
@@ -168,16 +168,66 @@ The KPI Platform implementation is **~70% complete**. Core workflow components a
     - [ ] Automatic break deduction logic - DEFERRED (fields created, calculation logic TBD)
     - [ ] Ability to skip/reuse breaks - DEFERRED (not in current requirements)
 
-#### 3. **Weekly Submission Pattern**
+#### 3. **Weekly Submission Pattern** ✅ IMPLEMENTED
 
-- [ ] **Two Daily Submissions** - No explicit tracking
-    - [ ] Morning plan submission (before work)
-    - [ ] Evening log submission (end of day)
-    - [ ] No UI/API distinction between these two submission types
-- [ ] **Task Carryover Logic** - Incomplete
-    - [ ] Unfinished morning tasks auto-suggest for next day
-    - [ ] Completion % tracking through day transitions
-    - [ ] "Rollover" vs "New" task distinction
+- [x] **Two Daily Submissions** - ✅ COMPLETE
+    - [x] Distinct submission types implemented: 'morning_plan' and 'evening_log'
+    - [x] Morning plan submission (finalize plan before work)
+        - POST `/api/task-logs/submit-morning-plan` endpoint added
+        - Accepts list of planned task IDs for the day
+        - Creates/finalizes DailyPlan record
+        - Tracks planned_task_ids, rollover_count, morning_plan_submitted_at
+    - [x] Evening log submission (submit actual time logs by 11 PM)
+        - POST `/api/task-logs` with submission_type='evening_log'
+        - Validates against 11 PM deadline
+        - Updates DailyPlan.evening_log_submitted_at on completion
+        - Marks submission as 'evening_logged' in status
+    - [x] UI/API distinction implemented in submission flow
+        - TaskLog.submission_type tracks which submission type
+        - DailyPlan.submission_status shows current state (pending → morning_planned → evening_logged → complete)
+        - Submitting morning plan sets is_finalized=true, morning_plan_submitted_at=now()
+        - Submitting evening log sets evening_log_submitted_at=now(), status='complete'
+
+- [x] **Task Carryover Logic** - ✅ FOUNDATION COMPLETE
+    - [x] Unfinished tasks auto-suggest for next day
+        - GET `/api/task-logs/carryover-tasks` endpoint returns unfinished tasks from previous day
+        - Queries tasks with status in [open, inprogress, not_started]
+        - Returns completion_percent_yesterday from previous day's task logs
+        - Identifies incomplete tasks (completion_percent < 100)
+        - Sorted by priority DESC and due_date ASC
+    - [x] Completion % tracking through day transitions
+        - completion_percent_at_dayend field added to task_logs table
+        - completion_percent stored in task_logs.metadata['completion_percent']
+        - Available for carryover suggestions to show how much was completed
+        - Can be used to auto-populate completion % in next day's morning plan
+    - [x] "Rollover" vs "New" task distinction
+        - Task.carryover_from_date field tracks which date task was rolled from
+        - Task.isCarryover() method returns boolean
+        - Task.scopeRollover() returns rollover tasks only
+        - Task.scopeNew() returns new (non-rollover) tasks
+        - Task.markAsCarryover($fromDate) marks a task as carried over
+        - API response includes 'type' field: 'carryover' or 'new'
+        - DailyPlan.rollover_count tracks quantity of carried-over tasks
+        - Frontend can show visual distinction (badge/icon) for rollover vs new tasks
+
+- [x] **Daily Plan Tracking** - ✅ COMPLETE
+    - [x] DailyPlan.planned_task_ids stores array of task IDs planned for morning
+    - [x] DailyPlan.rollover_count tracks count of tasks from previous day
+    - [x] DailyPlan.morning_plan_submitted_at timestamp when plan finalized
+    - [x] DailyPlan.evening_log_submitted_at timestamp when logs submitted
+    - [x] DailyPlan.submission_status tracks workflow state
+        - Values: pending, morning_planned, evening_logged, complete
+    - [x] Helper methods:
+        - isMorningPlanSubmitted() - checks if morning plan submitted
+        - isEveningLogSubmitted() - checks if evening log submitted
+        - isBothSubmitted() - checks if both submissions complete
+        - getMinutesSinceMorningPlan() - time tracking
+        - getMinutesSinceEveningLog() - time tracking
+    - [x] Query scopes:
+        - withMorningSubmission() - plans with morning plan submitted
+        - withEveningSubmission() - plans with evening log submitted
+        - complete() - plans with both submissions
+        - forDate(), forUserOnDate() - filtering
 
 #### 4. **Supervisor/HR/Manager Own KPI Scoring**
 

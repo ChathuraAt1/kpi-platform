@@ -357,6 +357,15 @@ class TaskLogController extends Controller
             \Illuminate\Support\Facades\Log::error('Failed to dispatch ClassifyTaskLogs: ' . $e->getMessage());
         }
 
+        // Update DailyPlan to track evening submission
+        if ($submissionType === 'evening_log') {
+            $dailyPlan = DailyPlan::forUserOnDate($userId, $payload['date'])->first();
+            if ($dailyPlan) {
+                $dailyPlan->submitEveningLog();
+                $dailyPlan->save();
+            }
+        }
+
         return response()->json([
             'status' => 'submitted',
             'submission_type' => $submissionType,
@@ -438,6 +447,155 @@ class TaskLogController extends Controller
             'message' => 'Supervisor score saved successfully',
             'log' => $log
         ], 200);
+    }
+
+    /**
+     * Submit morning plan: Finalize the morning plan for the day
+     * 
+     * Endpoint: POST /api/task-logs/submit-morning-plan
+     * 
+     * Submitted data includes:
+     * - date: date string (YYYY-MM-DD)
+     * - planned_task_ids: array of task IDs selected for today
+     * 
+     * Returns:
+     * - success: boolean
+     * - submission_type: 'morning_plan'
+     * - plan_status: finalized plan with task count and rollover count
+     * - deadline_info: next deadline (evening submission)
+     */
+    public function submitMorningPlan(Request $request)
+    {
+        $data = $request->validate([
+            'date' => 'required|date_format:Y-m-d',
+            'planned_task_ids' => 'required|array',
+            'planned_task_ids.*' => 'integer|exists:tasks,id',
+        ]);
+
+        $user = $request->user();
+        $dateStr = $data['date'];
+        $plannedTaskIds = $data['planned_task_ids'] ?? [];
+
+        // Get or create daily plan
+        $dailyPlan = DailyPlan::firstOrCreate(
+            ['user_id' => $user->id, 'date' => $dateStr],
+            ['submission_status' => 'pending']
+        );
+
+        // Count rollover tasks (tasks that were carried over from previous day)
+        $rollovers = Task::rollover()
+            ->where('owner_id', $user->id)
+            ->count();
+
+        // Submit the morning plan
+        $dailyPlan->submitMorningPlan($plannedTaskIds);
+        $dailyPlan->rollover_count = $rollovers;
+        $dailyPlan->save();
+
+        // Log this submission
+        \App\Models\AuditLog::create([
+            'user_id' => $user->id,
+            'action' => 'daily_plan.morning_plan_submitted',
+            'auditable_type' => DailyPlan::class,
+            'auditable_id' => $dailyPlan->id,
+            'old_values' => [],
+            'new_values' => [
+                'date' => $dateStr,
+                'planned_task_count' => count($plannedTaskIds),
+                'rollover_count' => $rollovers,
+                'submitted_at' => now()->toIso8601String(),
+            ],
+            'ip_address' => $request->ip(),
+        ]);
+
+        // Set deadline for evening submission
+        $deadline = Carbon::parse($dateStr)->setHour(23)->setMinute(0)->setSecond(0);
+        $minutesRemaining = (int)$deadline->diffInMinutes(now(), false);
+
+        return response()->json([
+            'status' => 'success',
+            'submission_type' => 'morning_plan',
+            'plan_status' => [
+                'date' => $dateStr,
+                'is_finalized' => true,
+                'finalized_at' => $dailyPlan->finalized_at->toIso8601String(),
+                'planned_task_count' => count($plannedTaskIds),
+                'rollover_count' => $rollovers,
+                'total_tasks_for_day' => count($plannedTaskIds) + $rollovers,
+            ],
+            'deadline_info' => [
+                'deadline' => $deadline->toIso8601String(),
+                'minutes_remaining' => max(-999999, $minutesRemaining),
+                'deadline_type' => 'evening_submission'
+            ]
+        ], 201);
+    }
+
+    /**
+     * Get carryover suggestions: Tasks from yesterday that weren't completed
+     * 
+     * Endpoint: GET /api/task-logs/carryover-tasks
+     * Query params:
+     * - date: optional date to get carryovers for (defaults to today)
+     * 
+     * Returns:
+     * - carryover_tasks: array of incomplete tasks from previous day(s)
+     * - carryover_count: total count
+     * - can_finalize_plan: boolean indicating if morning plan can be finalized
+     */
+    public function getCarryoverTasks(Request $request)
+    {
+        $user = $request->user();
+        $dateStr = $request->query('date', now()->toDateString());
+        $date = Carbon::parse($dateStr);
+        $previousDate = $date->copy()->subDay()->toDateString();
+
+        // Get task logs from previous day to identify incomplete tasks
+        $previousDayLogs = TaskLog::where('user_id', $user->id)
+            ->whereDate('date', $previousDate)
+            ->get()
+            ->keyBy('task_id');
+
+        // Get carryover candidates: unfinished tasks from previous day
+        $carryoverCandidates = Task::carryoverCandidates($user->id, $previousDate)
+            ->get()
+            ->map(function ($task) use ($previousDayLogs) {
+                $log = $previousDayLogs->get($task->id);
+                $completionPercent = 0;
+
+                // Get completion % from previous day's log if it exists
+                if ($log && $log->metadata && isset($log->metadata['completion_percent'])) {
+                    $completionPercent = $log->metadata['completion_percent'];
+                }
+
+                return [
+                    'id' => $task->id,
+                    'title' => $task->title,
+                    'description' => $task->description,
+                    'priority' => $task->priority,
+                    'planned_hours' => $task->planned_hours,
+                    'status' => $task->status,
+                    'completion_percent_yesterday' => $completionPercent,
+                    'is_incomplete' => $completionPercent < 100,
+                    'due_date' => $task->due_date?->toDateString(),
+                    'type' => 'carryover'
+                ];
+            });
+
+        // Get daily plan for today
+        $dailyPlan = DailyPlan::forUserOnDate($user->id, $dateStr)->first();
+        $isPlannedFinalized = $dailyPlan?->is_finalized ?? false;
+
+        return response()->json([
+            'date' => $dateStr,
+            'previous_date' => $previousDate,
+            'carryover_tasks' => $carryoverCandidates->values(),
+            'carryover_count' => $carryoverCandidates->count(),
+            'carryover_incomplete_count' => $carryoverCandidates->where('is_incomplete')->count(),
+            'is_plan_finalized' => $isPlannedFinalized,
+            'can_finalize_plan' => !$isPlannedFinalized,
+            'submission_type' => 'carryover_suggestion'
+        ]);
     }
 
     /**

@@ -739,5 +739,240 @@ class EvaluationController extends Controller
             ],
         ]);
     }
-}
 
+    /**
+     * Get employee's latest published evaluation results
+     * 
+     * Endpoint: GET /api/evaluations/my-results
+     * Returns: Latest published evaluation with all scores, remarks, and comments
+     * Permission: Accessible only to own evaluation (employees) + HR/Admin
+     */
+    public function getMyResults(Request $request)
+    {
+        $userId = $request->user()->id;
+
+        // Get latest published evaluation for the authenticated user
+        $evaluation = MonthlyEvaluation::where('user_id', $userId)
+            ->where('status', 'published')
+            ->latest('published_at')
+            ->with(['user:id,name,email,role', 'comments.user:id,name,role'])
+            ->first();
+
+        if (!$evaluation) {
+            return response()->json([
+                'status' => 'no_published_evaluation',
+                'message' => 'No published evaluations found. Check back after your KPI is finalized and published.',
+                'data' => null,
+            ], 200);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'evaluation' => [
+                    'id' => $evaluation->id,
+                    'period' => [
+                        'year' => $evaluation->year,
+                        'month' => $evaluation->month,
+                        'month_name' => $this->getMonthName($evaluation->month),
+                    ],
+                    'scores' => [
+                        'rule_based' => $evaluation->rule_based_score,
+                        'llm' => $evaluation->llm_based_score,
+                        'hr' => $evaluation->hr_score,
+                        'supervisor' => $evaluation->supervisor_score,
+                        'final' => $evaluation->score,
+                    ],
+                    'score_breakdown' => $evaluation->breakdown ?? [],
+                    'status' => $evaluation->status,
+                    'published_at' => $evaluation->published_at,
+                ],
+                'remarks' => [
+                    'hr' => $evaluation->hr_remarks ? [
+                        'content' => $evaluation->hr_remarks,
+                        'from' => 'HR',
+                        'at' => $evaluation->hr_scored_at,
+                    ] : null,
+                    'supervisor' => $evaluation->supervisor_remarks ? [
+                        'content' => $evaluation->supervisor_remarks,
+                        'from' => 'Supervisor',
+                        'at' => $evaluation->supervisor_scored_at,
+                    ] : null,
+                ],
+                'comments' => $evaluation->comments()
+                    ->where('type', 'remark')
+                    ->latest()
+                    ->get()
+                    ->map(fn($c) => [
+                        'id' => $c->id,
+                        'author' => [
+                            'id' => $c->user->id,
+                            'name' => $c->user->name,
+                            'role' => $c->user->role,
+                        ],
+                        'content' => $c->content,
+                        'created_at' => $c->created_at,
+                    ])->values(),
+            ],
+        ]);
+    }
+
+    /**
+     * Get employee's evaluation history (last 3-12 months)
+     * 
+     * Endpoint: GET /api/evaluations/my-results/history
+     * Query params: months (default: 6, max: 12)
+     * Returns: Array of published evaluations with period and score summary
+     * Permission: Accessible only to own evaluations (employees) + HR/Admin
+     */
+    public function getMyEvaluationHistory(Request $request)
+    {
+        $userId = $request->user()->id;
+        $months = min((int)$request->query('months', 6), 12);
+        $minDate = now()->subMonths($months);
+
+        $evaluations = MonthlyEvaluation::where('user_id', $userId)
+            ->where('status', 'published')
+            ->where(function ($q) use ($minDate) {
+                // Since we store year/month as integers, we need to build date range
+                $q->whereRaw('YEAR(published_at) > ?', [$minDate->year])
+                    ->orWhere(function ($q) use ($minDate) {
+                        $q->whereRaw('YEAR(published_at) = ?', [$minDate->year])
+                            ->whereRaw('MONTH(published_at) >= ?', [$minDate->month]);
+                    });
+            })
+            ->orderByDesc('year')
+            ->orderByDesc('month')
+            ->get();
+
+        if ($evaluations->isEmpty()) {
+            return response()->json([
+                'status' => 'no_history',
+                'message' => 'No evaluation history available for the requested period.',
+                'data' => [],
+            ], 200);
+        }
+
+        $history = $evaluations->map(fn($eval) => [
+            'id' => $eval->id,
+            'period' => [
+                'year' => $eval->year,
+                'month' => $eval->month,
+                'month_name' => $this->getMonthName($eval->month),
+            ],
+            'scores' => [
+                'rule_based' => $eval->rule_based_score,
+                'llm' => $eval->llm_based_score,
+                'hr' => $eval->hr_score,
+                'supervisor' => $eval->supervisor_score,
+                'final' => $eval->score,
+            ],
+            'published_at' => $eval->published_at,
+        ])->values();
+
+        return response()->json([
+            'status' => 'success',
+            'period_months' => $months,
+            'total_evaluations' => $history->count(),
+            'data' => $history,
+        ]);
+    }
+
+    /**
+     * Get evaluation trend data for visualization
+     * 
+     * Endpoint: GET /api/evaluations/my-results/trend
+     * Query params: months (default: 6, max: 12)
+     * Returns: Trend data for charting (final scores, averages, improvement)
+     * Permission: Accessible only to own evaluations (employees) + HR/Admin
+     */
+    public function getMyEvaluationTrend(Request $request)
+    {
+        $userId = $request->user()->id;
+        $months = min((int)$request->query('months', 6), 12);
+        $minDate = now()->subMonths($months);
+
+        $evaluations = MonthlyEvaluation::where('user_id', $userId)
+            ->where('status', 'published')
+            ->where(function ($q) use ($minDate) {
+                $q->whereRaw('YEAR(published_at) > ?', [$minDate->year])
+                    ->orWhere(function ($q) use ($minDate) {
+                        $q->whereRaw('YEAR(published_at) = ?', [$minDate->year])
+                            ->whereRaw('MONTH(published_at) >= ?', [$minDate->month]);
+                    });
+            })
+            ->orderBy('year')
+            ->orderBy('month')
+            ->get();
+
+        if ($evaluations->isEmpty()) {
+            return response()->json([
+                'status' => 'no_data',
+                'message' => 'Insufficient data for trend analysis.',
+                'data' => null,
+            ], 200);
+        }
+
+        // Calculate trend data
+        $scores = $evaluations->pluck('score')->filter()->toArray();
+        $avgScore = !empty($scores) ? round(array_sum($scores) / count($scores), 2) : 0;
+        $maxScore = !empty($scores) ? max($scores) : 0;
+        $minScore = !empty($scores) ? min($scores) : 0;
+        $improvement = null;
+
+        if ($evaluations->count() >= 2) {
+            $firstScore = $evaluations->first()->score;
+            $lastScore = $evaluations->last()->score;
+            if ($firstScore && $lastScore) {
+                $improvement = round($lastScore - $firstScore, 2);
+            }
+        }
+
+        $trendChart = $evaluations->map(fn($eval) => [
+            'period' => $this->getMonthName($eval->month) . ' ' . $eval->year,
+            'month' => $eval->month,
+            'year' => $eval->year,
+            'final_score' => $eval->score,
+            'rule_based_score' => $eval->rule_based_score,
+            'llm_score' => $eval->llm_based_score,
+            'hr_score' => $eval->hr_score,
+            'supervisor_score' => $eval->supervisor_score,
+        ])->values();
+
+        return response()->json([
+            'status' => 'success',
+            'period_months' => $months,
+            'summary' => [
+                'total_evaluations' => $evaluations->count(),
+                'average_score' => $avgScore,
+                'highest_score' => $maxScore,
+                'lowest_score' => $minScore,
+                'score_improvement' => $improvement,
+                'improvement_percentage' => $improvement ? round(($improvement / $evaluations->first()->score) * 100, 2) : null,
+            ],
+            'trend_data' => $trendChart,
+        ]);
+    }
+
+    /**
+     * Helper: Convert month number to month name
+     */
+    private function getMonthName($month): string
+    {
+        $months = [
+            1 => 'January',
+            2 => 'February',
+            3 => 'March',
+            4 => 'April',
+            5 => 'May',
+            6 => 'June',
+            7 => 'July',
+            8 => 'August',
+            9 => 'September',
+            10 => 'October',
+            11 => 'November',
+            12 => 'December',
+        ];
+        return $months[$month] ?? 'Unknown';
+    }
+}

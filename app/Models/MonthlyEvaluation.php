@@ -361,7 +361,7 @@ class MonthlyEvaluation extends Model
         $this->finalized_at = now();
         $this->score = $this->calculateFinalScore();
         $this->updateScoreMetadata();
-        
+
         return $this;
     }
 

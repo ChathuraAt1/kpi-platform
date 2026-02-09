@@ -75,6 +75,12 @@ The KPI Platform implementation is **~90% complete**. All Phase 0 core workflow 
     - [x] `POST /evaluations/trigger` - Generate monthly evaluations
     - [x] `GET /evaluations` - List evaluations
     - [x] `POST /evaluations/{id}/publish` - Publish evaluations
+    - [x] `POST /evaluations/{id}/save-hr-score` - Save HR score (HR role)
+    - [x] `GET /evaluations/pending-hr` - List evaluations pending HR score
+    - [x] `GET /evaluations/ready-to-publish` - List evaluations ready to publish
+    - [x] `GET /evaluations/heatmap` - Score heatmap by role/job
+    - [x] `GET /evaluations/role-trends` - Role-wise trend data (last N months)
+    - [x] `GET /evaluations/turnover-risk` - Turnover risk list (threshold & lookback)
 - [x] **Job Role Management** - Full CRUD
 - [x] **KPI Categories** - Full CRUD
 - [x] **Global Settings** - Configuration management
@@ -832,14 +838,14 @@ The KPI Platform implementation is **~90% complete**. All Phase 0 core workflow 
     - [x] Bulk disable/enable (framework in place)
     - [x] User list table with job roles and supervisors
 
-#### 2. **HR Dashboard** - Missing entirely
+#### 2. **HR Dashboard** - Partially implemented ✅
 
-- [ ] Number of evaluations pending HR score
-- [ ] Evaluations ready to publish
-- [ ] Employee performance summary heat map
-- [ ] Role-wise performance trends
-- [ ] Turnover risk indicators (low performers)
-- [ ] Promotion/training recommendations
+- [x] Number of evaluations pending HR score (API + UI tab)
+- [x] Evaluations ready to publish (API + UI tab)
+- [x] Employee performance summary heat map (API + UI)
+- [x] Role-wise performance trends (API + UI)
+- [x] Turnover risk indicators (low performers) (API + UI)
+- [ ] Promotion/training recommendations (heuristics & suggestions pending)
 
 #### 3. **Supervisor Dashboard** - Incomplete
 

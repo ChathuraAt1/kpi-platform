@@ -818,13 +818,245 @@ class EvaluationController extends Controller
     }
 
     /**
-     * Get employee's evaluation history (last 3-12 months)
-     * 
-     * Endpoint: GET /api/evaluations/my-results/history
-     * Query params: months (default: 6, max: 12)
-     * Returns: Array of published evaluations with period and score summary
-     * Permission: Accessible only to own evaluations (employees) + HR/Admin
+     * List evaluations that are pending HR score
+     * Endpoint: GET /api/evaluations/pending-hr
+     * Permission: HR or Admin
      */
+    public function pendingHr(Request $request)
+    {
+        if (!$request->user()->hasRole(['hr', 'admin'])) {
+            return response()->json(['error' => 'Only HR personnel can access pending HR evaluations'], 403);
+        }
+
+        $year = (int)$request->query('year', now()->year);
+        $month = (int)$request->query('month', now()->month);
+
+        $q = MonthlyEvaluation::with('user')
+            ->where('year', $year)
+            ->where('month', $month)
+            ->whereNull('hr_score')
+            ->orderBy('created_at', 'desc');
+
+        return response()->json($q->paginate(20));
+    }
+
+    /**
+     * List evaluations ready to publish (approved but not yet published)
+     * Endpoint: GET /api/evaluations/ready-to-publish
+     * Permission: HR or Admin
+     */
+    public function readyToPublish(Request $request)
+    {
+        if (!$request->user()->hasRole(['hr', 'admin'])) {
+            return response()->json(['error' => 'Only HR personnel can access ready-to-publish evaluations'], 403);
+        }
+
+        $year = (int)$request->query('year', now()->year);
+        $month = (int)$request->query('month', now()->month);
+
+        $q = MonthlyEvaluation::with('user')
+            ->where('year', $year)
+            ->where('month', $month)
+            ->where('status', 'approved')
+            ->whereNull('published_at')
+            ->orderBy('approved_at', 'desc');
+
+        return response()->json($q->paginate(20));
+    }
+
+    /**
+     * Heatmap of scores by role/job for a given period
+     * Endpoint: GET /api/evaluations/heatmap
+     * Query params: year, month
+     * Permission: HR or Admin or Manager
+     */
+    public function heatmap(Request $request)
+    {
+        if (!($request->user()->hasRole(['hr', 'admin']) || $request->user()->hasRole('manager'))) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $year = (int)$request->query('year', now()->year);
+        $month = (int)$request->query('month', now()->month);
+
+        $evaluations = MonthlyEvaluation::with('user.jobRole')
+            ->where('year', $year)
+            ->where('month', $month)
+            ->get();
+
+        $bins = [
+            '0-49' => [0, 49],
+            '50-59' => [50, 59],
+            '60-69' => [60, 69],
+            '70-79' => [70, 79],
+            '80-89' => [80, 89],
+            '90-100' => [90, 100],
+        ];
+
+        $result = [];
+
+        foreach ($evaluations as $e) {
+            $role = $e->user?->jobRole?->name ?? $e->user?->role ?? 'Unknown';
+            $score = $e->score ?? 0;
+
+            if (!isset($result[$role])) {
+                $result[$role] = array_fill_keys(array_keys($bins), 0);
+                $result[$role]['total'] = 0;
+            }
+
+            foreach ($bins as $label => [$min, $max]) {
+                if ($score >= $min && $score <= $max) {
+                    $result[$role][$label]++;
+                    $result[$role]['total']++;
+                    break;
+                }
+            }
+        }
+
+        return response()->json([
+            'year' => $year,
+            'month' => $month,
+            'bins' => array_keys($bins),
+            'heatmap' => $result,
+        ]);
+    }
+
+    /**
+     * Role-wise trends over past N months
+     * Endpoint: GET /api/evaluations/role-trends
+     * Query params: months (default 6)
+     * Permission: HR/Admin
+     */
+    public function roleTrends(Request $request)
+    {
+        if (!$request->user()->hasRole(['hr', 'admin'])) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $months = (int)$request->query('months', 6);
+        $months = max(3, min(12, $months));
+
+        $end = now()->startOfMonth();
+        $periods = [];
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $m = $end->copy()->subMonths($i);
+            $periods[] = ['year' => $m->year, 'month' => $m->month];
+        }
+
+        $roles = [];
+
+        foreach ($periods as $p) {
+            $evals = MonthlyEvaluation::with('user.jobRole')
+                ->where('year', $p['year'])
+                ->where('month', $p['month'])
+                ->get();
+
+            $byRole = [];
+            foreach ($evals as $e) {
+                $role = $e->user?->jobRole?->name ?? $e->user?->role ?? 'Unknown';
+                if (!isset($byRole[$role])) {
+                    $byRole[$role] = ['total' => 0, 'count' => 0];
+                }
+                $byRole[$role]['total'] += $e->score ?? 0;
+                $byRole[$role]['count'] += 1;
+            }
+
+            foreach ($byRole as $roleName => $stats) {
+                if (!isset($roles[$roleName])) {
+                    $roles[$roleName] = [];
+                }
+                $avg = $stats['count'] ? round($stats['total'] / $stats['count'], 2) : null;
+                $roles[$roleName][] = ['year' => $p['year'], 'month' => $p['month'], 'avg_score' => $avg];
+            }
+        }
+
+        return response()->json([
+            'periods' => $periods,
+            'trends' => $roles,
+        ]);
+    }
+
+    /**
+     * Turnover risk: list employees at risk based on low score or declining trend
+     * Endpoint: GET /api/evaluations/turnover-risk
+     * Query params: threshold (default 60), months (lookback for trend, default 3)
+     * Permission: HR/Admin
+     */
+    public function turnoverRisk(Request $request)
+    {
+        if (!$request->user()->hasRole(['hr', 'admin'])) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $threshold = (float)$request->query('threshold', 60);
+        $lookback = (int)$request->query('months', 3);
+        $lookback = max(2, min(12, $lookback));
+
+        // Get users who have evaluations in the lookback period
+        $end = now()->startOfMonth();
+        $periods = [];
+        for ($i = 0; $i < $lookback; $i++) {
+            $m = $end->copy()->subMonths($i);
+            $periods[] = ['year' => $m->year, 'month' => $m->month];
+        }
+
+        $evaluations = MonthlyEvaluation::where(function ($q) use ($periods) {
+            foreach ($periods as $p) {
+                $q->orWhere(function ($sub) use ($p) {
+                    $sub->where('year', $p['year'])->where('month', $p['month']);
+                });
+            }
+        })->with('user')->get();
+
+        $byUser = [];
+        foreach ($evaluations as $e) {
+            $uid = $e->user_id;
+            if (!isset($byUser[$uid])) {
+                $byUser[$uid] = ['user' => $e->user, 'scores' => []];
+            }
+            $byUser[$uid]['scores'][] = ['year' => $e->year, 'month' => $e->month, 'score' => $e->score ?? 0];
+        }
+
+        $atRisk = [];
+        foreach ($byUser as $uid => $data) {
+            $scores = collect($data['scores'])->sortBy(fn($s) => $s['year'] . '-' . str_pad($s['month'], 2, '0', STR_PAD_LEFT))->pluck('score')->values()->toArray();
+            $avg = empty($scores) ? null : round(array_sum($scores) / count($scores), 2);
+
+            // Decline check: compare last score to previous average
+            $decline = false;
+            if (count($scores) >= 2) {
+                $last = $scores[count($scores) - 1];
+                $prevAvg = round(array_sum(array_slice($scores, 0, -1)) / max(1, count($scores) - 1), 2);
+                if ($prevAvg - $last >= 5) {
+                    $decline = true;
+                }
+            }
+
+            if ($avg !== null && ($avg < $threshold || $decline)) {
+                $atRisk[] = [
+                    'user_id' => $data['user']->id,
+                    'name' => $data['user']->name,
+                    'role' => $data['user']->role,
+                    'job_role' => $data['user']->jobRole?->name,
+                    'avg_score' => $avg,
+                    'latest_score' => $scores[count($scores) - 1] ?? null,
+                    'decline' => $decline,
+                    'scores' => $scores,
+                ];
+            }
+        }
+
+        // Sort by avg_score ascending
+        usort($atRisk, fn($a, $b) => ($a['avg_score'] <=> $b['avg_score']));
+
+        return response()->json([
+            'threshold' => $threshold,
+            'lookback_months' => $lookback,
+            'at_risk' => $atRisk,
+        ]);
+    }
+
+    /**
     public function getMyEvaluationHistory(Request $request)
     {
         $userId = $request->user()->id;

@@ -125,4 +125,46 @@ class EvaluationControllerTest extends TestCase
         $eval->refresh();
         $this->assertEquals('published', $eval->status);
     }
+
+    public function test_pending_hr_endpoint_requires_hr_and_returns_list()
+    {
+        $hr = \App\Models\User::factory()->create(['role' => 'hr']);
+        $other = \App\Models\User::factory()->create();
+
+        // Create an evaluation without hr_score
+        $eval = \App\Models\MonthlyEvaluation::factory()->create(['user_id' => $other->id, 'year' => now()->year, 'month' => now()->month, 'hr_score' => null]);
+
+        $this->actingAs($hr, 'sanctum');
+        $resp = $this->getJson('/api/evaluations/pending-hr');
+        $resp->assertStatus(200);
+        $data = $resp->json();
+        $this->assertArrayHasKey('data', $data);
+        $this->assertTrue(collect($data['data'])->contains(fn($i) => $i['id'] === $eval->id));
+
+        // Non-HR should be forbidden
+        $user = \App\Models\User::factory()->create();
+        $this->actingAs($user, 'sanctum');
+        $this->getJson('/api/evaluations/pending-hr')->assertStatus(403);
+    }
+
+    public function test_heatmap_and_trends_endpoints_available_to_hr_and_manager()
+    {
+        $hr = \App\Models\User::factory()->create(['role' => 'hr']);
+        $manager = \App\Models\User::factory()->create(['role' => 'manager']);
+        $u1 = \App\Models\User::factory()->create(['role' => 'engineer']);
+
+        \App\Models\MonthlyEvaluation::factory()->create(['user_id' => $u1->id, 'year' => now()->year, 'month' => now()->month, 'score' => 72]);
+
+        $this->actingAs($hr, 'sanctum');
+        $hresp = $this->getJson('/api/evaluations/heatmap');
+        $hresp->assertStatus(200)->assertJsonStructure(['year', 'month', 'bins', 'heatmap']);
+
+        $this->actingAs($manager, 'sanctum');
+        $mresp = $this->getJson('/api/evaluations/heatmap');
+        $mresp->assertStatus(200);
+
+        $this->actingAs($hr, 'sanctum');
+        $tresp = $this->getJson('/api/evaluations/role-trends');
+        $tresp->assertStatus(200)->assertJsonStructure(['periods', 'trends']);
+    }
 }

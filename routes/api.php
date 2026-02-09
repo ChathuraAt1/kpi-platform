@@ -45,6 +45,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('evaluations', [\App\Http\Controllers\Api\EvaluationController::class, 'list'])->middleware('can:viewEvaluations');
     // Deprecated: evaluation approve endpoint removed — supervisor scoring handled via other flows
     Route::post('evaluations/{evaluation}/publish', [\App\Http\Controllers\Api\EvaluationController::class, 'publish'])->middleware('can:publishEvaluations');
+    // HR & Analytics endpoints for HR dashboard
+    Route::get('evaluations/pending-hr', [\App\Http\Controllers\Api\EvaluationController::class, 'pendingHr']);
+    Route::get('evaluations/ready-to-publish', [\App\Http\Controllers\Api\EvaluationController::class, 'readyToPublish']);
+    Route::get('evaluations/heatmap', [\App\Http\Controllers\Api\EvaluationController::class, 'heatmap']);
+    Route::get('evaluations/role-trends', [\App\Http\Controllers\Api\EvaluationController::class, 'roleTrends']);
+    Route::get('evaluations/turnover-risk', [\App\Http\Controllers\Api\EvaluationController::class, 'turnoverRisk']);
 
     // user management
     Route::get('users', [\App\Http\Controllers\Api\UserController::class, 'index'])->middleware('can:manageUsers');

@@ -73,7 +73,7 @@ class Task extends Model
     public function scopeCarryoverCandidates($query, $userId, $fromDate = null)
     {
         $fromDate = $fromDate ?? now()->toDateString();
-        
+
         return $query->where('owner_id', $userId)
             ->whereIn('status', ['open', 'inprogress', 'not_started'])
             ->whereDate('due_date', '<=', $fromDate)
@@ -124,3 +124,4 @@ class Task extends Model
     {
         return $this->carryover_from_date;
     }
+}

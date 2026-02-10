@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import './AdminDashboard.scss';
+import "./AdminDashboard.scss";
 
 export default function AdminDashboard() {
     const [dashboardMetrics, setDashboardMetrics] = useState(null);
@@ -8,9 +8,9 @@ export default function AdminDashboard() {
     const [auditLogs, setAuditLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [activeTab, setActiveTab] = useState('overview');
+    const [activeTab, setActiveTab] = useState("overview");
     const [selectedUsers, setSelectedUsers] = useState(new Set());
-    const [bulkAction, setBulkAction] = useState('');
+    const [bulkAction, setBulkAction] = useState("");
 
     useEffect(() => {
         fetchDashboardData();
@@ -20,16 +20,18 @@ export default function AdminDashboard() {
         try {
             setLoading(true);
             const [metricsRes, usersRes, auditRes] = await Promise.all([
-                axios.get('/api/dashboard/metrics'),
-                axios.get('/api/users?role=employee'),
-                axios.get('/api/audit-logs/summary'),
+                axios.get("/api/dashboard/metrics"),
+                axios.get("/api/users?role=employee"),
+                axios.get("/api/audit-logs/summary"),
             ]);
 
             setDashboardMetrics(metricsRes.data);
             setUsersList(usersRes.data.data || []);
             setAuditLogs(auditRes.data.logs || []);
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to load dashboard data');
+            setError(
+                err.response?.data?.message || "Failed to load dashboard data",
+            );
             console.error(err);
         } finally {
             setLoading(false);
@@ -50,65 +52,81 @@ export default function AdminDashboard() {
         if (selectedUsers.size === usersList.length) {
             setSelectedUsers(new Set());
         } else {
-            setSelectedUsers(new Set(usersList.map(u => u.id)));
+            setSelectedUsers(new Set(usersList.map((u) => u.id)));
         }
     };
 
     const executeBulkAction = async () => {
         if (!bulkAction || selectedUsers.size === 0) {
-            alert('Please select action and users');
+            alert("Please select action and users");
             return;
         }
 
         try {
             // Handle different bulk actions
             switch (bulkAction) {
-                case 'reset_permissions':
+                case "reset_permissions":
                     for (let userId of selectedUsers) {
-                        await axios.post(`/api/user-permissions/${userId}/reset`);
+                        await axios.post(
+                            `/api/user-permissions/${userId}/reset`,
+                        );
                     }
-                    alert(`Reset permissions for ${selectedUsers.size} user(s)`);
+                    alert(
+                        `Reset permissions for ${selectedUsers.size} user(s)`,
+                    );
                     break;
-                case 'disable':
+                case "disable":
                     // Bulk disable endpoint would go here
                     alert(`Disabled ${selectedUsers.size} user(s)`);
                     break;
-                case 'enable':
+                case "enable":
                     alert(`Enabled ${selectedUsers.size} user(s)`);
                     break;
                 default:
-                    alert('Unknown action');
+                    alert("Unknown action");
             }
             setSelectedUsers(new Set());
-            setBulkAction('');
+            setBulkAction("");
             await fetchDashboardData();
         } catch (err) {
-            alert('Error performing bulk action: ' + err.message);
+            alert("Error performing bulk action: " + err.message);
         }
     };
 
     const getHealthColor = (status) => {
         switch (status) {
-            case 'optimal': return '#10b981';
-            case 'healthy': return '#3b82f6';
-            case 'warning': return '#f59e0b';
-            case 'critical': return '#ef4444';
-            default: return '#6b7280';
+            case "optimal":
+                return "#10b981";
+            case "healthy":
+                return "#3b82f6";
+            case "warning":
+                return "#f59e0b";
+            case "critical":
+                return "#ef4444";
+            default:
+                return "#6b7280";
         }
     };
 
     const getHealthIcon = (status) => {
         switch (status) {
-            case 'optimal': return '✓';
-            case 'healthy': return '○';
-            case 'warning': return '⚠';
-            case 'critical': return '✕';
-            default: return '?';
+            case "optimal":
+                return "✓";
+            case "healthy":
+                return "○";
+            case "warning":
+                return "⚠";
+            case "critical":
+                return "✕";
+            default:
+                return "?";
         }
     };
 
     if (loading) {
-        return <div className="admin-dashboard loading">Loading dashboard...</div>;
+        return (
+            <div className="admin-dashboard loading">Loading dashboard...</div>
+        );
     }
 
     return (
@@ -118,21 +136,29 @@ export default function AdminDashboard() {
                 <div className="header-content">
                     <div className="header-text">
                         <span className="system-badge">System Nexus</span>
-                        <h2><span>Admin</span> Dashboard</h2>
+                        <h2>
+                            <span>Admin</span> Dashboard
+                        </h2>
                         <p>Infrastructure governance & system monitoring</p>
                     </div>
                     <div className="health-indicator">
-                        <div 
+                        <div
                             className="health-circle"
-                            style={{ 
-                                background: getHealthColor(dashboardMetrics?.system_health),
-                                boxShadow: `0 0 20px ${getHealthColor(dashboardMetrics?.system_health)}40`
+                            style={{
+                                background: getHealthColor(
+                                    dashboardMetrics?.system_health,
+                                ),
+                                boxShadow: `0 0 20px ${getHealthColor(dashboardMetrics?.system_health)}40`,
                             }}
                         >
-                            <span className="health-icon">{getHealthIcon(dashboardMetrics?.system_health)}</span>
+                            <span className="health-icon">
+                                {getHealthIcon(dashboardMetrics?.system_health)}
+                            </span>
                         </div>
                         <div>
-                            <div className="health-status">{dashboardMetrics?.system_health?.toUpperCase()}</div>
+                            <div className="health-status">
+                                {dashboardMetrics?.system_health?.toUpperCase()}
+                            </div>
                             <div className="health-label">System Health</div>
                         </div>
                     </div>
@@ -147,7 +173,9 @@ export default function AdminDashboard() {
                 <div className="health-issues">
                     <h3>⚠️ System Alerts</h3>
                     {dashboardMetrics.health_issues.map((issue, idx) => (
-                        <div key={idx} className="issue-item">{issue}</div>
+                        <div key={idx} className="issue-item">
+                            {issue}
+                        </div>
                     ))}
                 </div>
             )}
@@ -158,29 +186,49 @@ export default function AdminDashboard() {
                 <div className="metric-card">
                     <div className="card-header">
                         <h3>📊 Daily Submissions</h3>
-                        <span className={`badge status-${dashboardMetrics?.metrics?.submissions?.status}`}>
+                        <span
+                            className={`badge status-${dashboardMetrics?.metrics?.submissions?.status}`}
+                        >
                             {dashboardMetrics?.metrics?.submissions?.status?.toUpperCase()}
                         </span>
                     </div>
                     <div className="metric-value">
-                        {dashboardMetrics?.metrics?.submissions?.submission_rate_percentage}%
+                        {
+                            dashboardMetrics?.metrics?.submissions
+                                ?.submission_rate_percentage
+                        }
+                        %
                     </div>
                     <div className="metric-label">Submission Rate</div>
                     <div className="metric-bars">
                         <div className="bar ontime">
                             <div className="label">On Time</div>
-                            <div className="count">{dashboardMetrics?.metrics?.submissions?.on_time}</div>
+                            <div className="count">
+                                {
+                                    dashboardMetrics?.metrics?.submissions
+                                        ?.on_time
+                                }
+                            </div>
                         </div>
                         <div className="bar late">
                             <div className="label">Late</div>
-                            <div className="count">{dashboardMetrics?.metrics?.submissions?.late}</div>
+                            <div className="count">
+                                {dashboardMetrics?.metrics?.submissions?.late}
+                            </div>
                         </div>
                         <div className="bar missing">
                             <div className="label">Missing</div>
-                            <div className="count">{dashboardMetrics?.metrics?.submissions?.missing}</div>
+                            <div className="count">
+                                {
+                                    dashboardMetrics?.metrics?.submissions
+                                        ?.missing
+                                }
+                            </div>
                         </div>
                     </div>
-                    <div className="metric-total">Total Employee Submissions</div>
+                    <div className="metric-total">
+                        Total Employee Submissions
+                    </div>
                 </div>
 
                 {/* API Keys */}
@@ -190,60 +238,84 @@ export default function AdminDashboard() {
                         <span className="badge">HEALTH</span>
                     </div>
                     <div className="metric-value">
-                        {dashboardMetrics?.metrics?.api_keys?.healthy}/{dashboardMetrics?.metrics?.api_keys?.total}
+                        {dashboardMetrics?.metrics?.api_keys?.healthy}/
+                        {dashboardMetrics?.metrics?.api_keys?.total}
                     </div>
                     <div className="metric-label">Keys Operational</div>
                     <div className="metric-details">
                         <div className="detail-item healthy">
                             <span className="dot"></span>
-                            <span>Healthy: {dashboardMetrics?.metrics?.api_keys?.healthy}</span>
+                            <span>
+                                Healthy:{" "}
+                                {dashboardMetrics?.metrics?.api_keys?.healthy}
+                            </span>
                         </div>
                         <div className="detail-item degraded">
                             <span className="dot"></span>
-                            <span>Degraded: {dashboardMetrics?.metrics?.api_keys?.degraded}</span>
+                            <span>
+                                Degraded:{" "}
+                                {dashboardMetrics?.metrics?.api_keys?.degraded}
+                            </span>
                         </div>
                     </div>
-                    <a href="/admin/api-keys" className="card-link">View Keys →</a>
+                    <a href="/admin/api-keys" className="card-link">
+                        View Keys →
+                    </a>
                 </div>
 
                 {/* LLM Classification */}
                 <div className="metric-card">
                     <div className="card-header">
                         <h3>🤖 LLM Classification</h3>
-                        <span className={`badge status-${dashboardMetrics?.metrics?.llm_classification?.status}`}>
+                        <span
+                            className={`badge status-${dashboardMetrics?.metrics?.llm_classification?.status}`}
+                        >
                             {dashboardMetrics?.metrics?.llm_classification?.status?.toUpperCase()}
                         </span>
                     </div>
                     <div className="metric-value">
-                        {dashboardMetrics?.metrics?.llm_classification?.success_rate_percentage}%
+                        {
+                            dashboardMetrics?.metrics?.llm_classification
+                                ?.success_rate_percentage
+                        }
+                        %
                     </div>
                     <div className="metric-label">Success Rate (7 days)</div>
                     <div className="metric-details">
                         <div className="detail-item">
-                            <span>Total: {dashboardMetrics?.metrics?.llm_classification?.total_classifications}</span>
+                            <span>
+                                Total:{" "}
+                                {
+                                    dashboardMetrics?.metrics
+                                        ?.llm_classification
+                                        ?.total_classifications
+                                }
+                            </span>
                         </div>
                     </div>
-                    <a href="/admin/api-keys" className="card-link">Manage LLM →</a>
+                    <a href="/admin/api-keys" className="card-link">
+                        Manage LLM →
+                    </a>
                 </div>
             </div>
 
             {/* Tab Navigation */}
             <div className="tab-navigation">
-                <button 
-                    className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('overview')}
+                <button
+                    className={`tab-btn ${activeTab === "overview" ? "active" : ""}`}
+                    onClick={() => setActiveTab("overview")}
                 >
                     System Overview
                 </button>
-                <button 
-                    className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('users')}
+                <button
+                    className={`tab-btn ${activeTab === "users" ? "active" : ""}`}
+                    onClick={() => setActiveTab("users")}
                 >
                     Manage Users
                 </button>
-                <button 
-                    className={`tab-btn ${activeTab === 'audit' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('audit')}
+                <button
+                    className={`tab-btn ${activeTab === "audit" ? "active" : ""}`}
+                    onClick={() => setActiveTab("audit")}
                 >
                     Audit Logs
                 </button>
@@ -252,12 +324,15 @@ export default function AdminDashboard() {
             {/* Tab Content */}
             <div className="tab-content">
                 {/* Overview Tab */}
-                {activeTab === 'overview' && (
+                {activeTab === "overview" && (
                     <div className="overview-content">
                         <div className="section">
                             <h3>🎯 Quick Actions</h3>
                             <div className="action-grid">
-                                <a href="/admin/api-keys" className="action-btn">
+                                <a
+                                    href="/admin/api-keys"
+                                    className="action-btn"
+                                >
                                     <span className="icon">🔑</span>
                                     <span>API Key Management</span>
                                 </a>
@@ -265,11 +340,17 @@ export default function AdminDashboard() {
                                     <span className="icon">👥</span>
                                     <span>User Management</span>
                                 </a>
-                                <a href="/admin/settings" className="action-btn">
+                                <a
+                                    href="/admin/settings"
+                                    className="action-btn"
+                                >
                                     <span className="icon">⚙️</span>
                                     <span>System Settings</span>
                                 </a>
-                                <a href="/admin/permissions" className="action-btn">
+                                <a
+                                    href="/admin/permissions"
+                                    className="action-btn"
+                                >
                                     <span className="icon">🔐</span>
                                     <span>Role Permissions</span>
                                 </a>
@@ -280,20 +361,52 @@ export default function AdminDashboard() {
                             <h3>📋 System Status</h3>
                             <div className="status-grid">
                                 <div className="status-item">
-                                    <div className="status-label">Total Employees</div>
-                                    <div className="status-value">{dashboardMetrics?.metrics?.submissions?.total_employees}</div>
+                                    <div className="status-label">
+                                        Total Employees
+                                    </div>
+                                    <div className="status-value">
+                                        {
+                                            dashboardMetrics?.metrics
+                                                ?.submissions?.total_employees
+                                        }
+                                    </div>
                                 </div>
                                 <div className="status-item">
-                                    <div className="status-label">Active API Keys</div>
-                                    <div className="status-value">{dashboardMetrics?.metrics?.api_keys?.total}</div>
+                                    <div className="status-label">
+                                        Active API Keys
+                                    </div>
+                                    <div className="status-value">
+                                        {
+                                            dashboardMetrics?.metrics?.api_keys
+                                                ?.total
+                                        }
+                                    </div>
                                 </div>
                                 <div className="status-item">
-                                    <div className="status-label">Submission Rate</div>
-                                    <div className="status-value">{dashboardMetrics?.metrics?.submissions?.submission_rate_percentage}%</div>
+                                    <div className="status-label">
+                                        Submission Rate
+                                    </div>
+                                    <div className="status-value">
+                                        {
+                                            dashboardMetrics?.metrics
+                                                ?.submissions
+                                                ?.submission_rate_percentage
+                                        }
+                                        %
+                                    </div>
                                 </div>
                                 <div className="status-item">
-                                    <div className="status-label">LLM Success</div>
-                                    <div className="status-value">{dashboardMetrics?.metrics?.llm_classification?.success_rate_percentage}%</div>
+                                    <div className="status-label">
+                                        LLM Success
+                                    </div>
+                                    <div className="status-value">
+                                        {
+                                            dashboardMetrics?.metrics
+                                                ?.llm_classification
+                                                ?.success_rate_percentage
+                                        }
+                                        %
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -301,27 +414,37 @@ export default function AdminDashboard() {
                 )}
 
                 {/* Users Tab */}
-                {activeTab === 'users' && (
+                {activeTab === "users" && (
                     <div className="users-content">
                         <div className="bulk-actions">
                             <div className="action-controls">
-                                <button 
+                                <button
                                     className="select-btn"
                                     onClick={handleSelectAll}
                                 >
-                                    {selectedUsers.size === usersList.length ? '✓ Deselect All' : '△ Select All'}
+                                    {selectedUsers.size === usersList.length
+                                        ? "✓ Deselect All"
+                                        : "△ Select All"}
                                 </button>
-                                <select 
+                                <select
                                     value={bulkAction}
-                                    onChange={(e) => setBulkAction(e.target.value)}
+                                    onChange={(e) =>
+                                        setBulkAction(e.target.value)
+                                    }
                                     className="action-select"
                                 >
                                     <option value="">Select Action...</option>
-                                    <option value="reset_permissions">Reset Permissions</option>
-                                    <option value="disable">Disable Account</option>
-                                    <option value="enable">Enable Account</option>
+                                    <option value="reset_permissions">
+                                        Reset Permissions
+                                    </option>
+                                    <option value="disable">
+                                        Disable Account
+                                    </option>
+                                    <option value="enable">
+                                        Enable Account
+                                    </option>
                                 </select>
-                                <button 
+                                <button
                                     className="execute-btn"
                                     onClick={executeBulkAction}
                                     disabled={selectedUsers.size === 0}
@@ -335,7 +458,12 @@ export default function AdminDashboard() {
                             <table>
                                 <thead>
                                     <tr>
-                                        <th><input type="checkbox" onChange={handleSelectAll} /></th>
+                                        <th>
+                                            <input
+                                                type="checkbox"
+                                                onChange={handleSelectAll}
+                                            />
+                                        </th>
                                         <th>Name</th>
                                         <th>Email</th>
                                         <th>Job Role</th>
@@ -344,20 +472,44 @@ export default function AdminDashboard() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {usersList.map(user => (
-                                        <tr key={user.id} className={selectedUsers.has(user.id) ? 'selected' : ''}>
+                                    {usersList.map((user) => (
+                                        <tr
+                                            key={user.id}
+                                            className={
+                                                selectedUsers.has(user.id)
+                                                    ? "selected"
+                                                    : ""
+                                            }
+                                        >
                                             <td>
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={selectedUsers.has(user.id)}
-                                                    onChange={() => handleSelectUser(user.id)}
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedUsers.has(
+                                                        user.id,
+                                                    )}
+                                                    onChange={() =>
+                                                        handleSelectUser(
+                                                            user.id,
+                                                        )
+                                                    }
                                                 />
                                             </td>
-                                            <td className="name">{user.name}</td>
+                                            <td className="name">
+                                                {user.name}
+                                            </td>
                                             <td>{user.email}</td>
-                                            <td>{user.job_role?.title || 'N/A'}</td>
-                                            <td>{user.supervisor?.name || 'None'}</td>
-                                            <td><span className="status-badge active">Active</span></td>
+                                            <td>
+                                                {user.job_role?.title || "N/A"}
+                                            </td>
+                                            <td>
+                                                {user.supervisor?.name ||
+                                                    "None"}
+                                            </td>
+                                            <td>
+                                                <span className="status-badge active">
+                                                    Active
+                                                </span>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -367,39 +519,50 @@ export default function AdminDashboard() {
                 )}
 
                 {/* Audit Logs Tab */}
-                {activeTab === 'audit' && (
+                {activeTab === "audit" && (
                     <div className="audit-content">
                         <div className="audit-filters">
                             <h3>📝 Recent Audit Logs</h3>
-                            <p className="text-muted">Last 50 actions across the system</p>
+                            <p className="text-muted">
+                                Last 50 actions across the system
+                            </p>
                         </div>
                         <div className="audit-logs">
                             {auditLogs.length > 0 ? (
-                                auditLogs.map(log => (
-                                    <div key={log.id} className="audit-log-item">
-                                        <div className="log-time">{log.time_ago}</div>
+                                auditLogs.map((log) => (
+                                    <div
+                                        key={log.id}
+                                        className="audit-log-item"
+                                    >
+                                        <div className="log-time">
+                                            {log.time_ago}
+                                        </div>
                                         <div className="log-details">
-                                            <span className="log-user">{log.user_name}</span>
-                                            <span className="log-action">{log.action}</span>
-                                            <span className="log-model">{log.model}</span>
+                                            <span className="log-user">
+                                                {log.user_name}
+                                            </span>
+                                            <span className="log-action">
+                                                {log.action}
+                                            </span>
+                                            <span className="log-model">
+                                                {log.model}
+                                            </span>
                                         </div>
                                         {log.description && (
-                                            <div className="log-description">{log.description}</div>
+                                            <div className="log-description">
+                                                {log.description}
+                                            </div>
                                         )}
                                     </div>
                                 ))
                             ) : (
-                                <div className="empty-state">No audit logs found</div>
+                                <div className="empty-state">
+                                    No audit logs found
+                                </div>
                             )}
                         </div>
                     </div>
                 )}
-            </div>
-        </div>
-    );
-}                        Configure Parameters &rarr;
-                    </a>
-                </div>
             </div>
         </div>
     );

@@ -66,7 +66,7 @@ return new class extends Migration
             // When evaluation was finalized
 
             // Indexes for efficient querying
-            $table->index(['user_id', 'year', 'month']);
+            // NOTE: unique constraint on [user_id, year, month] already exists from original migration
             $table->index(['is_finalized', 'status']);
             $table->index(['hr_score']);
             $table->index(['supervisor_score']);
@@ -95,7 +95,7 @@ return new class extends Migration
         Schema::dropIfExists('evaluation_comments');
 
         Schema::table('monthly_evaluations', function (Blueprint $table) {
-            $table->dropIndex(['user_id', 'year', 'month']);
+            // Don't drop the unique constraint on [user_id, year, month] - it's from original migration
             $table->dropIndex(['is_finalized', 'status']);
             $table->dropIndex(['hr_score']);
             $table->dropIndex(['supervisor_score']);

@@ -13,6 +13,14 @@ export default function EmployeeDashboard() {
     const [trustedTime, setTrustedTime] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // New state for employee dashboard features
+    const [lastEvaluation, setLastEvaluation] = useState(null);
+    const [dailyProductivity, setDailyProductivity] = useState(null);
+    const [submissionStreak, setSubmissionStreak] = useState(null);
+    const [suggestions, setSuggestions] = useState(null);
+    const [dataLoading, setDataLoading] = useState(true);
+    const [error, setError] = useState(null);
+
     useEffect(() => {
         async function syncTime() {
             const time = await getTrustedTime();
@@ -21,6 +29,67 @@ export default function EmployeeDashboard() {
         }
         syncTime();
     }, []);
+
+    // Fetch employee dashboard data
+    useEffect(() => {
+        if (authLoading || loading) return;
+
+        async function fetchDashboardData() {
+            try {
+                setDataLoading(true);
+                setError(null);
+
+                // Fetch last evaluation scores
+                const evalRes = await fetch("/api/user/last-evaluation-scores");
+                if (evalRes.ok) {
+                    const data = await evalRes.json();
+                    if (data.status === "success") {
+                        setLastEvaluation(data.data);
+                    }
+                }
+
+                // Fetch daily productivity
+                const prodRes = await fetch(
+                    "/api/user/daily-productivity?date=" + today,
+                );
+                if (prodRes.ok) {
+                    const data = await prodRes.json();
+                    if (data.status === "success") {
+                        setDailyProductivity(data.data);
+                    }
+                }
+
+                // Fetch submission streak
+                const streakRes = await fetch(
+                    "/api/user/submission-streak?days=30",
+                );
+                if (streakRes.ok) {
+                    const data = await streakRes.json();
+                    if (data.status === "success") {
+                        setSubmissionStreak(data.data);
+                    }
+                }
+
+                // Fetch improvement suggestions
+                const suggRes = await fetch(
+                    "/api/user/improvement-suggestions?period=3",
+                );
+                if (suggRes.ok) {
+                    const data = await suggRes.json();
+                    if (data.status === "success") {
+                        setSuggestions(data.data);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch dashboard data:", err);
+                setError(err.message);
+            } finally {
+                setDataLoading(false);
+            }
+        }
+
+        fetchDashboardData();
+    }, [authLoading, loading, today]);
 
     if (authLoading || loading)
         return (
@@ -227,6 +296,222 @@ export default function EmployeeDashboard() {
                         </div>
                         <div className="absolute bottom-0 right-0 w-48 h-48 bg-orange-500/10 blur-[80px] rounded-full group-hover:scale-125 transition-transform duration-1000"></div>
                     </section>
+
+                    {/* Submission Streak */}
+                    {submissionStreak && (
+                        <section className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-lg p-5 shadow-lg border border-blue-200/50 dark:border-blue-900/50 overflow-hidden relative group">
+                            <div className="relative z-10 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <h3 className="text-lg font-black text-blue-900 dark:text-blue-100 tracking-tight">
+                                            Submission Streak
+                                        </h3>
+                                        <p className="text-[10px] font-black text-blue-700/60 dark:text-blue-300/60 uppercase tracking-widest mt-1">
+                                            Consistency Reward
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm">🔥</span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-white/60 dark:bg-blue-900/20 rounded-lg p-3 backdrop-blur-sm border border-blue-100/50 dark:border-blue-800/50">
+                                        <p className="text-[10px] font-black text-blue-700/70 dark:text-blue-300/70 uppercase tracking-wider mb-1">
+                                            Current
+                                        </p>
+                                        <p className="text-2xl font-black text-blue-900 dark:text-blue-100">
+                                            {
+                                                submissionStreak.data
+                                                    .current_streak
+                                            }
+                                        </p>
+                                        <p className="text-[9px] text-blue-600/60 dark:text-blue-400/60 mt-1">
+                                            days
+                                        </p>
+                                    </div>
+                                    <div className="bg-white/60 dark:bg-blue-900/20 rounded-lg p-3 backdrop-blur-sm border border-blue-100/50 dark:border-blue-800/50">
+                                        <p className="text-[10px] font-black text-blue-700/70 dark:text-blue-300/70 uppercase tracking-wider mb-1">
+                                            Longest
+                                        </p>
+                                        <p className="text-2xl font-black text-blue-900 dark:text-blue-100">
+                                            {
+                                                submissionStreak.data
+                                                    .longest_streak
+                                            }
+                                        </p>
+                                        <p className="text-[9px] text-blue-600/60 dark:text-blue-400/60 mt-1">
+                                            days
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="pt-2 text-[11px] text-blue-700/70 dark:text-blue-300/70 font-medium">
+                                    {submissionStreak.data.current_streak > 0
+                                        ? "Keep up the streak! 🚀"
+                                        : "Start your streak by submitting today"}
+                                </div>
+                            </div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/10 rounded-full blur-3xl -mr-12 -mt-12 group-hover:scale-125 transition-transform"></div>
+                        </section>
+                    )}
+
+                    {/* Daily Productivity Score */}
+                    {dailyProductivity && (
+                        <section className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-lg p-5 shadow-lg border border-emerald-200/50 dark:border-emerald-900/50 overflow-hidden relative group">
+                            <div className="relative z-10 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <h3 className="text-lg font-black text-emerald-900 dark:text-emerald-100 tracking-tight">
+                                            Today's Score
+                                        </h3>
+                                        <p className="text-[10px] font-black text-emerald-700/60 dark:text-emerald-300/60 uppercase tracking-widest mt-1">
+                                            Productivity Metric
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-baseline gap-2">
+                                    <div className="text-4xl font-black text-emerald-900 dark:text-emerald-100">
+                                        {Math.round(
+                                            dailyProductivity.productivity_score,
+                                        )}
+                                    </div>
+                                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                                        / 100
+                                    </span>
+                                </div>
+
+                                <div className="w-full bg-white/40 dark:bg-emerald-900/20 rounded-full h-2 overflow-hidden border border-emerald-100/50 dark:border-emerald-800/50">
+                                    <div
+                                        className="h-full bg-linear-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-1000"
+                                        style={{
+                                            width: `${Math.min(
+                                                100,
+                                                dailyProductivity.productivity_score,
+                                            )}%`,
+                                        }}
+                                    ></div>
+                                </div>
+
+                                <div className="text-[11px] text-emerald-700/70 dark:text-emerald-300/70 font-medium space-y-1">
+                                    <p>
+                                        📊 {dailyProductivity.log_count} tasks
+                                        logged
+                                    </p>
+                                    <p>
+                                        ⏱️ {dailyProductivity.total_hours} hours
+                                        worked
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-400/10 rounded-full blur-3xl -mr-12 -mt-12 group-hover:scale-125 transition-transform"></div>
+                        </section>
+                    )}
+
+                    {/* Last Evaluation */}
+                    {lastEvaluation && (
+                        <section className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 rounded-lg p-5 shadow-lg border border-purple-200/50 dark:border-purple-900/50 overflow-hidden relative group">
+                            <div className="relative z-10 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <h3 className="text-lg font-black text-purple-900 dark:text-purple-100 tracking-tight">
+                                            Last Evaluation
+                                        </h3>
+                                        <p className="text-[10px] font-black text-purple-700/60 dark:text-purple-300/60 uppercase tracking-widest mt-1">
+                                            {lastEvaluation.period.month_name}{" "}
+                                            {lastEvaluation.period.year}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-white/60 dark:bg-purple-900/20 rounded-lg p-3 backdrop-blur-sm border border-purple-100/50 dark:border-purple-800/50">
+                                        <p className="text-[9px] font-black text-purple-700/70 dark:text-purple-300/70 uppercase tracking-wider mb-1.5">
+                                            Final Score
+                                        </p>
+                                        <p className="text-3xl font-black text-purple-900 dark:text-purple-100">
+                                            {lastEvaluation.scores.final || "-"}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {lastEvaluation.scores.supervisor && (
+                                            <div className="bg-white/60 dark:bg-purple-900/20 rounded-lg p-2 backdrop-blur-sm border border-purple-100/50 dark:border-purple-800/50">
+                                                <p className="text-[8px] font-black text-purple-700/70 dark:text-purple-300/70 uppercase tracking-wider">
+                                                    Supervisor
+                                                </p>
+                                                <p className="text-xl font-bold text-purple-900 dark:text-purple-100">
+                                                    {
+                                                        lastEvaluation.scores
+                                                            .supervisor
+                                                    }
+                                                </p>
+                                            </div>
+                                        )}
+                                        {lastEvaluation.scores.hr && (
+                                            <div className="bg-white/60 dark:bg-purple-900/20 rounded-lg p-2 backdrop-blur-sm border border-purple-100/50 dark:border-purple-800/50">
+                                                <p className="text-[8px] font-black text-purple-700/70 dark:text-purple-300/70 uppercase tracking-wider">
+                                                    HR Score
+                                                </p>
+                                                <p className="text-xl font-bold text-purple-900 dark:text-purple-100">
+                                                    {lastEvaluation.scores.hr}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <button className="w-full text-[10px] font-black text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 uppercase tracking-widest py-2 transition-all">
+                                    View Details →
+                                </button>
+                            </div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-400/10 rounded-full blur-3xl -mr-12 -mt-12 group-hover:scale-125 transition-transform"></div>
+                        </section>
+                    )}
+
+                    {/* Improvement Suggestions */}
+                    {suggestions && suggestions.data.suggestions.length > 0 && (
+                        <section className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-lg p-5 shadow-lg border border-amber-200/50 dark:border-amber-900/50 overflow-hidden relative group">
+                            <div className="relative z-10 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <h3 className="text-lg font-black text-amber-900 dark:text-amber-100 tracking-tight">
+                                            Improvement Tips
+                                        </h3>
+                                        <p className="text-[10px] font-black text-amber-700/60 dark:text-amber-300/60 uppercase tracking-widest mt-1">
+                                            Based on Your Performance
+                                        </p>
+                                    </div>
+                                    <span className="text-sm">💡</span>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {suggestions.data.suggestions
+                                        .slice(0, 2)
+                                        .map((sugg, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="bg-white/60 dark:bg-amber-900/20 rounded-lg p-3 backdrop-blur-sm border border-amber-100/50 dark:border-amber-800/50"
+                                            >
+                                                <p className="text-xs font-black text-amber-900 dark:text-amber-100 mb-1">
+                                                    {sugg.title}
+                                                </p>
+                                                <p className="text-[11px] text-amber-700/70 dark:text-amber-300/70 line-clamp-2">
+                                                    {sugg.description}
+                                                </p>
+                                            </div>
+                                        ))}
+                                </div>
+
+                                {suggestions.data.suggestions.length > 2 && (
+                                    <button className="w-full text-[10px] font-black text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 uppercase tracking-widest py-2 transition-all">
+                                        View All Tips →
+                                    </button>
+                                )}
+                            </div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-3xl -mr-12 -mt-12 group-hover:scale-125 transition-transform"></div>
+                        </section>
+                    )}
                 </aside>
 
                 {/* Right Column: Task Log */}

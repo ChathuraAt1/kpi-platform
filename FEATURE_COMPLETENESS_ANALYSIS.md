@@ -847,21 +847,49 @@ The KPI Platform implementation is **~90% complete**. All Phase 0 core workflow 
 - [x] Turnover risk indicators (low performers) (API + UI)
 - [ ] Promotion/training recommendations (heuristics & suggestions pending)
 
-#### 3. **Supervisor Dashboard** - Incomplete
+#### 3. **Supervisor Dashboard** - Partially implemented ✅
 
-- [ ] Today's team submission status
-- [ ] Team member KPI trends
-- [ ] Missing/overdue evaluations to score
-- [ ] Team performance vs company average
-- [ ] Individual drill-down for each team member
+- [x] Today's team submission status (API + Supervisor endpoint)
+- [x] Team member KPI trends (API + Supervisor endpoint)
+- [x] Missing/overdue evaluations to score (API + Supervisor endpoint)
+- [x] Team performance vs company average (API + Supervisor endpoint)
+- [x] Individual drill-down for each team member (API + Supervisor endpoint)
 
-#### 4. **Employee Dashboard** - Missing features
+Notes:
 
-- [ ] Submission deadline countdown timer
-- [ ] Last evaluation scores display
-- [ ] KPI improvement suggestions
-- [ ] Daily productivity score (real-time based on logged time)
-- [ ] Streak indicator (consecutive days with submissions)
+- UI scaffolding for the Supervisor Dashboard should consume the new `/api/supervisor/*` endpoints.
+- Next steps: add frontend SupervisorDashboard.jsx to render these tabs and add pagination, filters, and per-member scoring UI (estimated 8-12 hours).
+
+#### 4. **Employee Dashboard** - IMPLEMENTED ✅
+
+**Status:** Fully implemented (backend APIs + frontend UI components)
+
+Backend Endpoints Added:
+
+- [x] `GET /user/last-evaluation-scores` - Last published evaluation with scores breakdown
+- [x] `GET /user/daily-productivity?date=YYYY-MM-DD` - Daily productivity score (0-100) with logs breakdown
+- [x] `GET /user/submission-streak?days=30` - Current and longest streak with submission date history
+- [x] `GET /user/improvement-suggestions?period=3` - KPI improvement tips based on evaluation trends
+
+Frontend Components Added:
+
+- [x] **Last Evaluation Section** - Displays final score, HR score, supervisor score, and publication date
+- [x] **Daily Productivity Meter** - Visual progress bar with productivity score and log summary
+- [x] **Submission Streak Display** - Current streak badge with fire emoji, longest streak tracker
+- [x] **Improvement Suggestions Panel** - Shows top 2 suggestions with priority indicators (low_performance, declining_trend, inconsistent_performance, high_performer, submission_reminder)
+- [x] All sections styled with gradient backgrounds, responsive layout adapting to mobile/desktop
+
+**Implementation Details:**
+
+- Employee dashboard now display last published evaluation scores (rule-based, LLM, HR, supervisor, and final)
+- Daily productivity dynamically calculated from TaskLog entries with weighted priority system
+- Submission streak computed from consecutive days with TaskLog entries (up to 1 year lookback)
+- KPI improvement suggestions use heuristics: low performance detection, trend analysis (declining %), variance detection (inconsistent months), high performer recognition, submission reminder
+- Frontend sections refresh on date changes and automatically fetch data on page load
+- All endpoints properly authenticated (require `auth:sanctum`)
+- Feature tests added for all endpoints covering: no data scenarios, valid data, edge cases (gaps in streak, declining trends, high performance)
+
+**Next Steps:** Deploy and gather employee feedback on UI layout and suggestion quality; consider enhancing suggestions with LLM-based analysis for richer insights.
 
 #### 5. **Reporting & Analytics** - Missing entirely
 

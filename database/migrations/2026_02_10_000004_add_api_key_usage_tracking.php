@@ -13,15 +13,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Track daily API usage and quota status
+        // Add additional API key tracking and management features
+        // NOTE: daily_usage and daily_quota already exist from original create_api_keys_table
+
         Schema::table('api_keys', function (Blueprint $table) {
-            $table->integer('daily_usage')->default(0)->after('cooldown_until');
-            // Daily API call count (resets at midnight)
-
-            $table->integer('daily_quota')->nullable()->after('daily_usage');
-            // Maximum calls allowed per day (null = unlimited)
-
-            $table->timestamp('last_usage_reset_at')->nullable()->after('daily_quota');
+            $table->timestamp('last_usage_reset_at')->nullable()->after('daily_usage');
             // Last time daily usage counter was reset
 
             $table->json('available_models')->nullable()->after('last_usage_reset_at');
@@ -155,8 +151,7 @@ return new class extends Migration
             $table->dropIndex(['auto_rotate_on_limit', 'is_active']);
 
             $table->dropColumn([
-                'daily_usage',
-                'daily_quota',
+                // NOTE: daily_usage and daily_quota are NOT dropped - they're from original migration
                 'last_usage_reset_at',
                 'available_models',
                 'preferred_model',

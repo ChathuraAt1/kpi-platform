@@ -61,7 +61,7 @@ return new class extends Migration
             // JSON: {team_member_kpi: 0.5, manager_productivity: 0.3, supervision_effectiveness: 0.2}
             // Configurable weights for management role KPI calculation
 
-            $table->index(['user_id', 'year', 'month']);
+            // NOTE: unique constraint on [user_id, year, month] already exists from original migration
             $table->index(['team_member_avg_score']);
         });
 
@@ -89,7 +89,7 @@ return new class extends Migration
         });
 
         Schema::table('monthly_evaluations', function (Blueprint $table) {
-            $table->dropIndex(['user_id', 'year', 'month']);
+            // Don't drop the unique constraint on [user_id, year, month] - it's from original migration
             $table->dropIndex(['team_member_avg_score']);
             $table->dropColumn([
                 'team_member_avg_score',

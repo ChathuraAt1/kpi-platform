@@ -36,7 +36,7 @@ export default function TaskLogGrid({
     const [submitting, setSubmitting] = useState(false);
     const [message, setMessage] = useState(null);
     const [isExpanded, setIsExpanded] = useState(false);
-    
+
     // Shift and break information
     const [shift, setShift] = useState(null);
     const [breaks, setBreaks] = useState([]);
@@ -69,14 +69,15 @@ export default function TaskLogGrid({
      * Check if a task overlaps with break times
      */
     function checkBreakOverlap(startTime, endTime) {
-        if (!startTime || !endTime || !breaks || breaks.length === 0) return null;
-        
+        if (!startTime || !endTime || !breaks || breaks.length === 0)
+            return null;
+
         for (const brk of breaks) {
             const breakStart = parseFloat(brk.start.replace(":", "."));
             const breakEnd = parseFloat(brk.end.replace(":", "."));
             const taskStart = parseFloat(startTime.replace(":", "."));
             const taskEnd = parseFloat(endTime.replace(":", "."));
-            
+
             // Check for overlap
             if (taskStart < breakEnd && taskEnd > breakStart) {
                 return {
@@ -95,15 +96,15 @@ export default function TaskLogGrid({
      */
     function isWithinShift(startTime, endTime) {
         if (!shift || !startTime || !endTime) return true;
-        
+
         const shiftStart = parseFloat(shift.start.replace(":", "."));
         const shiftEnd = parseFloat(shift.end.replace(":", "."));
         const taskStart = parseFloat(startTime.replace(":", "."));
         const taskEnd = parseFloat(endTime.replace(":", "."));
-        
+
         const withinStart = taskStart >= shiftStart;
         const withinEnd = taskEnd <= shiftEnd;
-        
+
         return { withinStart, withinEnd, valid: withinStart && withinEnd };
     }
 
@@ -250,8 +251,10 @@ export default function TaskLogGrid({
                 const templateData = template.data;
                 if (templateData.shift) setShift(templateData.shift);
                 if (templateData.breaks) setBreaks(templateData.breaks);
-                if (templateData.expected_work_hours) setExpectedWorkHours(templateData.expected_work_hours);
-                if (templateData.total_break_hours) setTotalBreakHours(templateData.total_break_hours);
+                if (templateData.expected_work_hours)
+                    setExpectedWorkHours(templateData.expected_work_hours);
+                if (templateData.total_break_hours)
+                    setTotalBreakHours(templateData.total_break_hours);
 
                 // Normalize and de-duplicate rows from the template
                 const normalized = (templateData.rows || []).map((r) => ({
@@ -330,8 +333,10 @@ export default function TaskLogGrid({
                 const templateData = template.data;
                 if (templateData.shift) setShift(templateData.shift);
                 if (templateData.breaks) setBreaks(templateData.breaks);
-                if (templateData.expected_work_hours) setExpectedWorkHours(templateData.expected_work_hours);
-                if (templateData.total_break_hours) setTotalBreakHours(templateData.total_break_hours);
+                if (templateData.expected_work_hours)
+                    setExpectedWorkHours(templateData.expected_work_hours);
+                if (templateData.total_break_hours)
+                    setTotalBreakHours(templateData.total_break_hours);
 
                 const normalized = (templateData.rows || []).map((r) => ({
                     id: r.id || null,
@@ -574,31 +579,49 @@ export default function TaskLogGrid({
                     <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex flex-wrap gap-6">
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                            <span className="text-xs font-bold text-slate-600">Shift Window:</span>
+                            <span className="text-xs font-bold text-slate-600">
+                                Shift Window:
+                            </span>
                             <span className="text-xs font-black text-slate-900">
                                 {shift.start} - {shift.end}
                             </span>
                             {shift.is_custom && (
-                                <span className="text-[8px] px-2 py-1 bg-blue-100 text-blue-700 rounded font-black">CUSTOM</span>
+                                <span className="text-[8px] px-2 py-1 bg-blue-100 text-blue-700 rounded font-black">
+                                    CUSTOM
+                                </span>
                             )}
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                            <span className="text-xs font-bold text-slate-600">Total Break:</span>
-                            <span className="text-xs font-black text-slate-900">{totalBreakHours}h</span>
+                            <span className="text-xs font-bold text-slate-600">
+                                Total Break:
+                            </span>
+                            <span className="text-xs font-black text-slate-900">
+                                {totalBreakHours}h
+                            </span>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                            <span className="text-xs font-bold text-slate-600">Expected Work:</span>
-                            <span className="text-xs font-black text-slate-900">{expectedWorkHours}h</span>
+                            <span className="text-xs font-bold text-slate-600">
+                                Expected Work:
+                            </span>
+                            <span className="text-xs font-black text-slate-900">
+                                {expectedWorkHours}h
+                            </span>
                         </div>
                         {breaks.length > 0 && (
                             <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-slate-600">Break Times:</span>
+                                <span className="text-xs font-bold text-slate-600">
+                                    Break Times:
+                                </span>
                                 <div className="flex gap-2">
                                     {breaks.map((b, i) => (
-                                        <span key={i} className="text-xs px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded font-bold">
-                                            {b.start}-{b.end} ({b.label || "Break"})
+                                        <span
+                                            key={i}
+                                            className="text-xs px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded font-bold"
+                                        >
+                                            {b.start}-{b.end} (
+                                            {b.label || "Break"})
                                         </span>
                                     ))}
                                 </div>
@@ -713,11 +736,19 @@ export default function TaskLogGrid({
                                                     <input
                                                         type="time"
                                                         className={`w-full bg-neutral-50/50 hover:bg-white border rounded-lg text-xs font-bold text-slate-600 focus:ring-2 focus:ring-orange-500 transition-all p-2 disabled:opacity-50 ${
-                                                            r.type === "task" && r.start_time && r.end_time && !isWithinShift(r.start_time, r.end_time).withinStart
+                                                            r.type === "task" &&
+                                                            r.start_time &&
+                                                            r.end_time &&
+                                                            !isWithinShift(
+                                                                r.start_time,
+                                                                r.end_time,
+                                                            ).withinStart
                                                                 ? "border-red-300 bg-red-50"
                                                                 : "border-neutral-200"
                                                         }`}
-                                                        value={r.start_time || ""}
+                                                        value={
+                                                            r.start_time || ""
+                                                        }
                                                         onChange={(e) =>
                                                             updateRow(
                                                                 r.originalIdx,
@@ -727,9 +758,18 @@ export default function TaskLogGrid({
                                                         }
                                                         disabled={isReadOnly}
                                                     />
-                                                    {r.type === "task" && r.start_time && r.end_time && !isWithinShift(r.start_time, r.end_time).withinStart && (
-                                                        <p className="text-[9px] text-red-600 font-bold">Before shift: {shift?.start}</p>
-                                                    )}
+                                                    {r.type === "task" &&
+                                                        r.start_time &&
+                                                        r.end_time &&
+                                                        !isWithinShift(
+                                                            r.start_time,
+                                                            r.end_time,
+                                                        ).withinStart && (
+                                                            <p className="text-[9px] text-red-600 font-bold">
+                                                                Before shift:{" "}
+                                                                {shift?.start}
+                                                            </p>
+                                                        )}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 border-r border-slate-50">
@@ -737,7 +777,17 @@ export default function TaskLogGrid({
                                                     <input
                                                         type="time"
                                                         className={`w-full bg-neutral-50/50 hover:bg-white border rounded-lg text-xs font-bold text-slate-600 focus:ring-2 focus:ring-orange-500 transition-all p-2 disabled:opacity-50 ${
-                                                            r.type === "task" && r.start_time && r.end_time && (!isWithinShift(r.start_time, r.end_time).withinEnd || checkBreakOverlap(r.start_time, r.end_time))
+                                                            r.type === "task" &&
+                                                            r.start_time &&
+                                                            r.end_time &&
+                                                            (!isWithinShift(
+                                                                r.start_time,
+                                                                r.end_time,
+                                                            ).withinEnd ||
+                                                                checkBreakOverlap(
+                                                                    r.start_time,
+                                                                    r.end_time,
+                                                                ))
                                                                 ? "border-red-300 bg-red-50"
                                                                 : "border-neutral-200"
                                                         }`}
@@ -751,15 +801,29 @@ export default function TaskLogGrid({
                                                         }
                                                         disabled={isReadOnly}
                                                     />
-                                                    {r.type === "task" && r.start_time && r.end_time && !isWithinShift(r.start_time, r.end_time).withinEnd && (
-                                                        <p className="text-[9px] text-red-600 font-bold">After shift: {shift?.end}</p>
-                                                    )}
-                                                    {r.type === "task" && checkBreakOverlap(r.start_time, r.end_time) && (
-                                                        <p className="text-[9px] text-yellow-600 font-bold">⚠️ Overlaps break</p>
-                                                    )}
+                                                    {r.type === "task" &&
+                                                        r.start_time &&
+                                                        r.end_time &&
+                                                        !isWithinShift(
+                                                            r.start_time,
+                                                            r.end_time,
+                                                        ).withinEnd && (
+                                                            <p className="text-[9px] text-red-600 font-bold">
+                                                                After shift:{" "}
+                                                                {shift?.end}
+                                                            </p>
+                                                        )}
+                                                    {r.type === "task" &&
+                                                        checkBreakOverlap(
+                                                            r.start_time,
+                                                            r.end_time,
+                                                        ) && (
+                                                            <p className="text-[9px] text-yellow-600 font-bold">
+                                                                ⚠️ Overlaps
+                                                                break
+                                                            </p>
+                                                        )}
                                                 </div>
-                                            </td>
-                                                />
                                             </td>
                                             <td className="px-4 py-3 border-r border-slate-50">
                                                 <div className="flex items-center justify-center">

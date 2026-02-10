@@ -134,13 +134,17 @@ export default function Layout({ children }) {
     if (!user && location.pathname !== "/login") return children;
     if (location.pathname === "/login")
         return (
-            <div className={`min-h-screen font-sans ${isDark ? "bg-gray-900 text-white" : "bg-white text-black"}`}>
+            <div
+                className={`min-h-screen font-sans ${isDark ? "bg-gray-900 text-white" : "bg-white text-black"}`}
+            >
                 {children}
             </div>
         );
 
     return (
-        <div className={`flex h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} font-sans transition-colors`}>
+        <div
+            className={`flex h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} font-sans transition-colors`}
+        >
             {/* Sidebar */}
             <aside
                 className={`${isSidebarOpen ? "w-56" : "w-16"} h-full ${isDark ? "bg-gray-800 text-gray-200" : "bg-black text-gray-200"} transition-all duration-300 flex flex-col shadow-lg relative z-30 border-r ${isDark ? "border-gray-700" : "border-gray-900"}`}
@@ -183,35 +187,42 @@ export default function Layout({ children }) {
                                             <NavLink
                                                 key={item.path}
                                                 to={item.path}
-                                                className={({ isActive }) => `
-                                                    flex items-center gap-2 px-2 py-2 rounded-md transition-all group overflow-hidden relative text-xs font-semibold
-                                                    ${
-                                                        isActive
-                                                            ? "bg-orange-500 text-white"
-                                                            : isDark ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-900 text-gray-300"
-                                                    }
-                                                `}
                                             >
-                                                {isActive && (
-                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-white"></div>
-                                                )}
-                                                <svg
-                                                    className={`w-4 h-4 shrink-0 transition-all`}
-                                                    fill="none"
-                                                    viewBox="0 0 24 24"
-                                                    stroke="currentColor"
-                                                >
-                                                    <path
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                        strokeWidth={2}
-                                                        d={item.icon}
-                                                    />
-                                                </svg>
-                                                {isSidebarOpen && (
-                                                    <span className="truncate whitespace-nowrap">
-                                                        {item.name}
-                                                    </span>
+                                                {({ isActive }) => (
+                                                    <div
+                                                        className={`
+                                                            flex items-center gap-2 px-2 py-2 rounded-md transition-all group overflow-hidden relative text-xs font-semibold
+                                                            ${
+                                                                isActive
+                                                                    ? "bg-orange-500 text-white"
+                                                                    : isDark
+                                                                      ? "hover:bg-gray-700 text-gray-300"
+                                                                      : "hover:bg-gray-900 text-gray-300"
+                                                            }
+                                                        `}
+                                                    >
+                                                        {isActive && (
+                                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-white"></div>
+                                                        )}
+                                                        <svg
+                                                            className={`w-4 h-4 shrink-0 transition-all`}
+                                                            fill="none"
+                                                            viewBox="0 0 24 24"
+                                                            stroke="currentColor"
+                                                        >
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth={2}
+                                                                d={item.icon}
+                                                            />
+                                                        </svg>
+                                                        {isSidebarOpen && (
+                                                            <span className="truncate whitespace-nowrap">
+                                                                {item.name}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </NavLink>
                                         ))}
@@ -222,7 +233,9 @@ export default function Layout({ children }) {
                     })()}
                 </nav>
 
-                <div className={`p-2 border-t ${isDark ? "border-gray-700 bg-gray-700/20" : "border-gray-700 bg-gray-700/20"}`}>
+                <div
+                    className={`p-2 border-t ${isDark ? "border-gray-700 bg-gray-700/20" : "border-gray-700 bg-gray-700/20"}`}
+                >
                     <button
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                         className={`w-full h-8 rounded-md flex items-center justify-center transition-colors ${isDark ? "hover:bg-gray-700" : "hover:bg-gray-700"} text-gray-400`}
@@ -245,17 +258,25 @@ export default function Layout({ children }) {
             </aside>
 
             {/* Main Content Area */}
-            <div className={`flex-1 flex flex-col min-w-0 ${isDark ? "bg-gray-900" : "bg-gray-50"} relative overflow-hidden transition-colors`}>
+            <div
+                className={`flex-1 flex flex-col min-w-0 ${isDark ? "bg-gray-900" : "bg-gray-50"} relative overflow-hidden transition-colors`}
+            >
                 {/* Topbar */}
-                <header className={`h-14 ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white/50 border-gray-200"} backdrop-blur-xl border-b flex items-center justify-between px-6 sticky top-0 z-20 shadow-sm transition-colors`}>
+                <header
+                    className={`h-14 ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white/50 border-gray-200"} backdrop-blur-xl border-b flex items-center justify-between px-6 sticky top-0 z-20 shadow-sm transition-colors`}
+                >
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col gap-0.5">
-                            <h2 className={`text-sm font-black tracking-tight ${isDark ? "text-white" : "text-black"}`}>
+                            <h2
+                                className={`text-sm font-black tracking-tight ${isDark ? "text-white" : "text-black"}`}
+                            >
                                 {navItems.find(
                                     (i) => i.path === location.pathname,
                                 )?.name || "Overview"}
                             </h2>
-                            <p className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-600"}`}>
+                            <p
+                                className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-600"}`}
+                            >
                                 {navItems.find(
                                     (i) => i.path === location.pathname,
                                 )?.category || ""}
@@ -265,12 +286,16 @@ export default function Layout({ children }) {
 
                     <div className="flex items-center gap-3">
                         {/* Status Check - Mini Badge */}
-                        <div className={`px-3 py-1 rounded-full flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest ${isDark ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700"} border transition-colors`}>
+                        <div
+                            className={`px-3 py-1 rounded-full flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest ${isDark ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700"} border transition-colors`}
+                        >
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
                             Active
                         </div>
 
-                        <div className={`h-6 w-px ${isDark ? "bg-gray-700" : "bg-gray-200"} opacity-30`}></div>
+                        <div
+                            className={`h-6 w-px ${isDark ? "bg-gray-700" : "bg-gray-200"} opacity-30`}
+                        ></div>
 
                         {/* Theme Toggle */}
                         <button
@@ -305,16 +330,22 @@ export default function Layout({ children }) {
                                 }
                                 className={`flex items-center gap-2 p-1.5 rounded-md transition-all border ${isDark ? "hover:bg-gray-700 border-gray-700" : "hover:bg-gray-100 border-gray-300"}`}
                             >
-                                <div className={`w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-black ${isDark ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-orange-50 text-orange-600 border-orange-200"} border shadow-sm`}>
+                                <div
+                                    className={`w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-black ${isDark ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-orange-50 text-orange-600 border-orange-200"} border shadow-sm`}
+                                >
                                     {user?.name
                                         ? user.name.charAt(0).toUpperCase()
                                         : "?"}
                                 </div>
                                 <div className="flex-col text-right hidden sm:flex text-[11px]">
-                                    <span className={`font-bold leading-none ${isDark ? "text-white" : "text-black"}`}>
+                                    <span
+                                        className={`font-bold leading-none ${isDark ? "text-white" : "text-black"}`}
+                                    >
                                         {user?.name ?? "User"}
                                     </span>
-                                    <span className={`text-[9px] font-bold uppercase tracking-tighter mt-0.5 ${isDark ? "text-gray-500" : "text-gray-600"}`}>
+                                    <span
+                                        className={`text-[9px] font-bold uppercase tracking-tighter mt-0.5 ${isDark ? "text-gray-500" : "text-gray-600"}`}
+                                    >
                                         {user?.role ?? ""}
                                     </span>
                                 </div>
@@ -334,12 +365,20 @@ export default function Layout({ children }) {
                             </button>
 
                             {isUserMenuOpen && (
-                                <div className={`absolute right-0 mt-1 w-48 rounded-lg shadow-xl border z-50 animate-in fade-in zoom-in duration-200 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
-                                    <div className={`px-3 py-2 border-b ${isDark ? "border-gray-700 bg-gray-700/30" : "border-gray-200 bg-gray-50"}`}>
-                                        <p className={`text-[8px] font-bold uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-600"} mb-0.5`}>
+                                <div
+                                    className={`absolute right-0 mt-1 w-48 rounded-lg shadow-xl border z-50 animate-in fade-in zoom-in duration-200 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+                                >
+                                    <div
+                                        className={`px-3 py-2 border-b ${isDark ? "border-gray-700 bg-gray-700/30" : "border-gray-200 bg-gray-50"}`}
+                                    >
+                                        <p
+                                            className={`text-[8px] font-bold uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-600"} mb-0.5`}
+                                        >
                                             Signed in as
                                         </p>
-                                        <p className={`text-xs font-bold truncate ${isDark ? "text-gray-200" : "text-gray-900"}`}>
+                                        <p
+                                            className={`text-xs font-bold truncate ${isDark ? "text-gray-200" : "text-gray-900"}`}
+                                        >
                                             {user.email}
                                         </p>
                                     </div>
@@ -389,7 +428,9 @@ export default function Layout({ children }) {
                 </header>
 
                 {/* Main Content */}
-                <main className={`flex-1 overflow-y-auto p-5 custom-scrollbar relative z-10 transition-all ${isDark ? "bg-gray-900" : "bg-gray-50"}`}>
+                <main
+                    className={`flex-1 overflow-y-auto p-5 custom-scrollbar relative z-10 transition-all ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
+                >
                     <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
                         {children}
                     </div>
@@ -398,8 +439,12 @@ export default function Layout({ children }) {
                 <SessionModal />
 
                 {/* Background Accents */}
-                <div className={`absolute top-[-15%] right-[-12%] w-[45%] h-[45%] blur-[140px] rounded-full pointer-events-none ${isDark ? "bg-orange-500/5" : "bg-orange-500/8"}`}></div>
-                <div className={`absolute bottom-[-15%] left-[-12%] w-[35%] h-[35%] blur-[140px] rounded-full pointer-events-none ${isDark ? "bg-orange-600/5" : "bg-orange-600/8"}`}></div>
+                <div
+                    className={`absolute top-[-15%] right-[-12%] w-[45%] h-[45%] blur-[140px] rounded-full pointer-events-none ${isDark ? "bg-orange-500/5" : "bg-orange-500/8"}`}
+                ></div>
+                <div
+                    className={`absolute bottom-[-15%] left-[-12%] w-[35%] h-[35%] blur-[140px] rounded-full pointer-events-none ${isDark ? "bg-orange-600/5" : "bg-orange-600/8"}`}
+                ></div>
             </div>
         </div>
     );

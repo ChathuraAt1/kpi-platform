@@ -20,6 +20,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('tasks/plan', [TaskController::class, 'storePlan']);
     Route::get('user/progress', [UserController::class, 'progress']);
     Route::put('user/profile', [UserController::class, 'updateProfile']);
+
+    // Employee dashboard endpoints
+    Route::get('user/last-evaluation-scores', [UserController::class, 'getLastEvaluationScores']);
+    Route::get('user/daily-productivity', [UserController::class, 'getDailyProductivity']);
+    Route::get('user/submission-streak', [UserController::class, 'getSubmissionStreak']);
+    Route::get('user/improvement-suggestions', [UserController::class, 'getImprovementSuggestions']);
+
     Route::apiResource('tasks', TaskController::class);
     Route::apiResource('todos', TodoController::class);
 
@@ -96,4 +103,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // KPI categories management
     Route::apiResource('kpi-categories', \App\Http\Controllers\Api\KpiCategoryController::class);
     Route::apiResource('job-roles', \App\Http\Controllers\Api\JobRoleController::class);
+
+    // Supervisor dashboard endpoints
+    Route::prefix('supervisor')->group(function () {
+        Route::get('team/submission-status', [\App\Http\Controllers\Api\SupervisorController::class, 'teamSubmissionStatus'])->middleware('can:viewEvaluations');
+        Route::get('team/kpi-trends', [\App\Http\Controllers\Api\SupervisorController::class, 'teamKpiTrends'])->middleware('can:viewEvaluations');
+        Route::get('team/missing-evaluations', [\App\Http\Controllers\Api\SupervisorController::class, 'missingEvaluationsToScore'])->middleware('can:viewEvaluations');
+        Route::get('team/vs-company', [\App\Http\Controllers\Api\SupervisorController::class, 'teamVsCompany'])->middleware('can:viewEvaluations');
+        Route::get('member/{user}', [\App\Http\Controllers\Api\SupervisorController::class, 'memberOverview'])->middleware('can:viewEvaluations');
+    });
 });

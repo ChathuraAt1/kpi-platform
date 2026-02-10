@@ -477,8 +477,12 @@ class TaskLogController extends Controller
         $plannedTaskIds = $data['planned_task_ids'] ?? [];
 
         // Get or create daily plan
+        // FIX: Ensure date is Y-m-d string
         $dailyPlan = DailyPlan::firstOrCreate(
-            ['user_id' => $user->id, 'date' => $dateStr],
+            [
+                'user_id' => $user->id, 
+                'date' => \Carbon\Carbon::parse($dateStr)->toDateString()
+            ],
             ['submission_status' => 'pending']
         );
 

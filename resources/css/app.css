@@ -4,12 +4,13 @@
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
 @source '../**/*.js';
+@source '../**/*.jsx';
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 
-    /* Orange & Black Color Scheme */
+    /* Refined Color Palette for Premium Feel */
     --color-orange-50: #fff7ed;
     --color-orange-100: #ffedd5;
     --color-orange-200: #fed7aa;
@@ -20,66 +21,80 @@
     --color-orange-700: #c2410c;
     --color-orange-800: #9a3412;
     --color-orange-900: #7c2d12;
+    --color-orange-950: #431407;
 
-    --color-black: #0a0a0a;
-    --color-gray-50: #f9f9f9;
-    --color-gray-100: #f3f3f3;
-    --color-gray-200: #e8e8e8;
-    --color-gray-300: #d9d9d9;
-    --color-gray-400: #b8b8b8;
-    --color-gray-500: #7d7d7d;
-    --color-gray-600: #5a5a5a;
-    --color-gray-700: #3d3d3d;
-    --color-gray-800: #2a2a2a;
-    --color-gray-900: #1a1a1a;
+    --color-gray-50: #FAFAFA; /* Lighter for cleaner background */
+    --color-gray-100: #F4F4F5;
+    --color-gray-200: #E4E4E7;
+    --color-gray-300: #D4D4D8;
+    --color-gray-400: #A1A1AA;
+    --color-gray-500: #71717A;
+    --color-gray-600: #52525B;
+    --color-gray-700: #3F3F46;
+    --color-gray-800: #27272A;
+    --color-gray-900: #18181B;
+    --color-gray-950: #09090B; /* Deep black for dark mode */
+    
     --color-white: #ffffff;
+    --color-black: #000000;
 
-    /* Compact spacing */
-    --spacing-0: 0px;
-    --spacing-1: 2px;
-    --spacing-2: 4px;
-    --spacing-3: 6px;
-    --spacing-4: 8px;
-    --spacing-5: 10px;
-    --spacing-6: 12px;
-    --spacing-8: 16px;
-    --spacing-10: 20px;
-    --spacing-12: 24px;
-    --spacing-16: 32px;
-    --spacing-20: 40px;
-    --spacing-24: 48px;
-
-    /* Reduced border radius */
+    /* Removed "Compact spacing" overrides to restore standard Tailwind spacing */
+    /* This allows the UI to breathe and fixes the "shrunken" look */
+    
+    /* Standard Border Radius */
     --radius-none: 0px;
-    --radius-sm: 2px;
-    --radius-base: 4px;
-    --radius-md: 6px;
-    --radius-lg: 8px;
-    --radius-xl: 10px;
-    --radius-2xl: 12px;
-    --radius-3xl: 16px;
+    --radius-sm: 0.125rem;
+    --radius-base: 0.25rem;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.5rem;
+    --radius-xl: 0.75rem;
+    --radius-2xl: 1rem;
+    --radius-3xl: 1.5rem;
+    --radius-full: 9999px;
 }
 
 /* Dark mode support */
 @layer base {
     :root {
         color-scheme: light;
+        --background-color: var(--color-gray-50);
+        --text-color: var(--color-gray-900);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
     }
 
     :root.dark {
         color-scheme: dark;
+        --background-color: var(--color-gray-950);
+        --text-color: var(--color-white);
+    }
+
+    body {
+        background-color: var(--background-color);
+        color: var(--text-color);
+        transition: background-color 0.3s ease, color 0.3s ease;
     }
 
     /* Custom scrollbar */
     .custom-scrollbar::-webkit-scrollbar {
         width: 6px;
+        height: 6px;
     }
 
     .custom-scrollbar::-webkit-scrollbar-track {
-        @apply bg-gray-100 dark:bg-gray-800;
+        @apply bg-transparent;
     }
 
     .custom-scrollbar::-webkit-scrollbar-thumb {
-        @apply bg-gray-400 dark:bg-gray-600 rounded-lg;
+        @apply bg-gray-300/50 dark:bg-gray-700/50 rounded-full hover:bg-gray-400 dark:hover:bg-gray-600 transition-colors;
+    }
+    
+    /* Utility to hide scrollbar but keep functionality */
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
     }
 }

@@ -97,6 +97,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('dashboard/metrics', [\App\Http\Controllers\Api\ReportingController::class, 'adminDashboardMetrics'])->middleware('can:manageUsers');
     Route::get('audit-logs/summary', [\App\Http\Controllers\Api\ReportingController::class, 'auditLogSummary'])->middleware('can:manageUsers');
 
+    // Reporting & Analytics endpoints
+    Route::prefix('reporting')->middleware('can:manageUsers')->group(function () {
+        Route::get('export-kpis', [\App\Http\Controllers\Api\ReportingController::class, 'exportEmployeeKpis']);
+        Route::get('department-performance', [\App\Http\Controllers\Api\ReportingController::class, 'departmentPerformanceReport']);
+        Route::get('kpi-trends', [\App\Http\Controllers\Api\ReportingController::class, 'kpiTrendAnalysis']);
+        Route::get('outliers', [\App\Http\Controllers\Api\ReportingController::class, 'outlierIdentification']);
+        Route::get('category-benchmarks', [\App\Http\Controllers\Api\ReportingController::class, 'categoryWiseBenchmarks']);
+        Route::get('supervisor-effectiveness', [\App\Http\Controllers\Api\ReportingController::class, 'supervisorEffectiveness']);
+    });
+
     Route::get('global-settings', [\App\Http\Controllers\Api\GlobalSettingController::class, 'index']);
     Route::put('global-settings/{key}', [\App\Http\Controllers\Api\GlobalSettingController::class, 'update']);
 

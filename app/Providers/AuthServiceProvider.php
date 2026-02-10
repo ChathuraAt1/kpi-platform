@@ -38,8 +38,8 @@ class AuthServiceProvider extends ServiceProvider
 
         // Evaluation-related gates
         Gate::define('manageEvaluations', function ($user) {
-            if (($user->role ?? '') === 'admin' || ($user->role ?? '') === 'hr') return true;
-            return method_exists($user, 'hasRole') ? ($user->hasRole('admin') || $user->hasRole('hr')) : false;
+            if (($user->role ?? '') === 'admin' || ($user->role ?? '') === 'hr' || ($user->role ?? '') === 'it_admin') return true;
+            return method_exists($user, 'hasRole') ? ($user->hasRole('admin') || $user->hasRole('hr') || $user->hasRole('it_admin')) : false;
         });
 
         Gate::define('viewEvaluations', function ($user) {

@@ -9,13 +9,36 @@ export default function Layout({ children }) {
     const { isDark, toggleTheme } = useTheme();
     const navigate = useNavigate();
     const location = useLocation();
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+
+    React.useEffect(() => {
+        const handleResize = () => {
+            const mobile = window.innerWidth < 1024;
+            setIsMobile(mobile);
+            if (mobile && isSidebarOpen) {
+                setIsSidebarOpen(false);
+            } else if (!mobile && !isSidebarOpen) {
+                setIsSidebarOpen(true);
+            }
+        };
+
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     // Close user menu when user changes (e.g., after login)
     React.useEffect(() => {
         setIsUserMenuOpen(false);
     }, [user]);
+
+    // Auto-close sidebar on mobile when navigating
+    React.useEffect(() => {
+        if (isMobile) {
+            setIsSidebarOpen(false);
+        }
+    }, [location.pathname, isMobile]);
 
     async function handleLogout() {
         await logout();
@@ -143,28 +166,43 @@ export default function Layout({ children }) {
 
     return (
         <div
-            className={`flex h-screen ${isDark ? "bg-gray-900" : "bg-gray-50"} font-sans transition-colors`}
+            className={`flex h-screen ${isDark ? "bg-gray-950" : "bg-gray-50"} font-sans transition-colors`}
         >
+            {/* Mobile Backdrop */}
+            {isMobile && isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm transition-opacity"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
             {/* Sidebar */}
             <aside
-                className={`${isSidebarOpen ? "w-56" : "w-16"} h-full ${isDark ? "bg-gray-800 text-gray-200" : "bg-black text-gray-200"} transition-all duration-300 flex flex-col shadow-lg relative z-30 border-r ${isDark ? "border-gray-700" : "border-gray-900"}`}
+                className={`
+                    ${isSidebarOpen ? "w-72" : isMobile ? "w-0 -ml-16 overflow-hidden" : "w-24"} 
+                    fixed lg:relative z-50 h-full flex flex-col transition-all duration-300 ease-in-out border-r
+                    ${isDark ? "bg-gray-900/95 backdrop-blur-xl border-white/5" : "bg-white/95 backdrop-blur-xl border-gray-200/50"}
+                `}
             >
-                <div className="p-3 flex items-center justify-between overflow-hidden">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-md bg-orange-500 flex items-center justify-center shrink-0 shadow-lg">
-                            <span className="text-white font-bold text-sm">
+                <div className="h-20 flex items-center px-6">
+                    <div className={`flex items-center gap-4 ${!isSidebarOpen && !isMobile ? "justify-center w-full" : ""}`}>
+                        <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center shrink-0 shadow-lg shadow-orange-500/20 ring-1 ring-white/20">
+                            <span className="text-white font-black text-lg">
                                 K
                             </span>
                         </div>
-                        {isSidebarOpen && (
-                            <span className="font-bold text-sm text-white tracking-tight">
-                                KPiFlow
-                            </span>
+                        {(isSidebarOpen) && (
+                            <div className="flex flex-col">
+                                <span className={`font-black text-xl tracking-tight leading-none ${isDark ? "text-white" : "text-gray-900"}`}>
+                                    KPiFlow
+                                </span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mt-0.5">Platform</span>
+                            </div>
                         )}
                     </div>
                 </div>
 
-                <nav className="flex-1 px-2 space-y-3 mt-4 overflow-y-auto custom-scrollbar">
+                <nav className="flex-1 px-4 space-y-8 mt-4 overflow-y-auto custom-scrollbar">
                     {(() => {
                         const categories = new Map();
                         filteredNav.forEach((item) => {
@@ -178,7 +216,7 @@ export default function Layout({ children }) {
                             ([category, items]) => (
                                 <div key={category}>
                                     {isSidebarOpen && (
-                                        <p className="px-2 text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1 mt-3 first:mt-0">
+                                        <p className="px-4 text-[11px] font-black uppercase tracking-widest text-gray-400 mb-3 opacity-80">
                                             {category}
                                         </p>
                                     )}
@@ -187,25 +225,24 @@ export default function Layout({ children }) {
                                             <NavLink
                                                 key={item.path}
                                                 to={item.path}
+                                                end={item.path === "/"}
                                             >
                                                 {({ isActive }) => (
                                                     <div
                                                         className={`
-                                                            flex items-center gap-2 px-2 py-2 rounded-md transition-all group overflow-hidden relative text-xs font-semibold
-                                                            ${
-                                                                isActive
-                                                                    ? "bg-orange-500 text-white"
-                                                                    : isDark
-                                                                      ? "hover:bg-gray-700 text-gray-300"
-                                                                      : "hover:bg-gray-900 text-gray-300"
+                                                            flex items-center gap-4 px-4 py-3 rounded-2xl transition-all group relative overflow-hidden text-sm font-bold
+                                                            ${isActive
+                                                                ? "bg-orange-600 text-white shadow-lg shadow-orange-500/30"
+                                                                : isDark
+                                                                    ? "text-gray-400 hover:text-white hover:bg-white/5"
+                                                                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-100"
                                                             }
+                                                            ${!isSidebarOpen && !isMobile ? "justify-center px-0 py-4" : ""}
                                                         `}
+                                                        title={!isSidebarOpen ? item.name : ""}
                                                     >
-                                                        {isActive && (
-                                                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-white"></div>
-                                                        )}
                                                         <svg
-                                                            className={`w-4 h-4 shrink-0 transition-all`}
+                                                            className={`w-5 h-5 shrink-0 transition-transform duration-300 ${isActive ? "scale-105" : "group-hover:scale-110"}`}
                                                             fill="none"
                                                             viewBox="0 0 24 24"
                                                             stroke="currentColor"
@@ -213,14 +250,21 @@ export default function Layout({ children }) {
                                                             <path
                                                                 strokeLinecap="round"
                                                                 strokeLinejoin="round"
-                                                                strokeWidth={2}
+                                                                strokeWidth={2.5}
                                                                 d={item.icon}
                                                             />
                                                         </svg>
                                                         {isSidebarOpen && (
-                                                            <span className="truncate whitespace-nowrap">
+                                                            <span className="truncate tracking-tight">
                                                                 {item.name}
                                                             </span>
+                                                        )}
+
+                                                        {/* Tooltip for collapsed state */}
+                                                        {!isSidebarOpen && !isMobile && (
+                                                            <div className="absolute left-full ml-4 px-3 py-2 bg-gray-900 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-xl whitespace-nowrap">
+                                                                {item.name}
+                                                            </div>
                                                         )}
                                                     </div>
                                                 )}
@@ -233,15 +277,13 @@ export default function Layout({ children }) {
                     })()}
                 </nav>
 
-                <div
-                    className={`p-2 border-t ${isDark ? "border-gray-700 bg-gray-700/20" : "border-gray-700 bg-gray-700/20"}`}
-                >
+                <div className={`p-6 border-t ${isDark ? "border-white/5" : "border-gray-100"}`}>
                     <button
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                        className={`w-full h-8 rounded-md flex items-center justify-center transition-colors ${isDark ? "hover:bg-gray-700" : "hover:bg-gray-700"} text-gray-400`}
+                        className={`w-full h-12 rounded-xl flex items-center justify-center transition-all ${isDark ? "bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white" : "bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600"}`}
                     >
                         <svg
-                            className={`w-4 h-4 transition-transform duration-300 ${!isSidebarOpen ? "rotate-180" : ""}`}
+                            className={`w-5 h-5 transition-transform duration-300 ${!isSidebarOpen ? "rotate-180" : ""}`}
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -249,7 +291,7 @@ export default function Layout({ children }) {
                             <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                strokeWidth={2}
+                                strokeWidth={2.5}
                                 d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
                             />
                         </svg>
@@ -259,64 +301,70 @@ export default function Layout({ children }) {
 
             {/* Main Content Area */}
             <div
-                className={`flex-1 flex flex-col min-w-0 ${isDark ? "bg-gray-900" : "bg-gray-50"} relative overflow-hidden transition-colors`}
+                className={`flex-1 flex flex-col min-w-0 ${isDark ? "bg-gray-950" : "bg-gray-50/50"} relative overflow-hidden transition-colors w-full`}
             >
                 {/* Topbar */}
                 <header
-                    className={`h-14 ${isDark ? "bg-gray-800/50 border-gray-700" : "bg-white/50 border-gray-200"} backdrop-blur-xl border-b flex items-center justify-between px-6 sticky top-0 z-20 shadow-sm transition-colors`}
+                    className={`h-20 ${isDark ? "bg-gray-900/80 border-white/5" : "bg-white/80 border-gray-200/50"} backdrop-blur-xl border-b flex items-center justify-between px-8 sticky top-0 z-30 transition-colors shadow-sm`}
                 >
                     <div className="flex items-center gap-4">
-                        <div className="flex flex-col gap-0.5">
+                        {isMobile && (
+                            <button
+                                onClick={() => setIsSidebarOpen(true)}
+                                className={`p-2.5 rounded-xl ${isDark ? "text-gray-200 bg-white/5" : "text-gray-600 bg-gray-100"}`}
+                            >
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
+                        )}
+                        <div className="flex flex-col">
                             <h2
-                                className={`text-sm font-black tracking-tight ${isDark ? "text-white" : "text-black"}`}
+                                className={`text-lg font-black tracking-tight ${isDark ? "text-white" : "text-gray-900"}`}
                             >
                                 {navItems.find(
                                     (i) => i.path === location.pathname,
                                 )?.name || "Overview"}
                             </h2>
                             <p
-                                className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-600"}`}
+                                className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-400"}`}
                             >
                                 {navItems.find(
                                     (i) => i.path === location.pathname,
-                                )?.category || ""}
+                                )?.category || "Dashboard"}
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 lg:gap-6">
                         {/* Status Check - Mini Badge */}
                         <div
-                            className={`px-3 py-1 rounded-full flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest ${isDark ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700"} border transition-colors`}
+                            className={`hidden sm:flex px-4 py-2 rounded-full items-center gap-2.5 text-[10px] font-black uppercase tracking-widest ${isDark ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border border-emerald-100"}`}
                         >
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                            Active
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            System Active
                         </div>
 
-                        <div
-                            className={`h-6 w-px ${isDark ? "bg-gray-700" : "bg-gray-200"} opacity-30`}
-                        ></div>
+                        <div className={`h-8 w-px ${isDark ? "bg-gray-800" : "bg-gray-200"}`}></div>
 
                         {/* Theme Toggle */}
                         <button
                             onClick={toggleTheme}
-                            className={`p-1.5 rounded-md transition-all ${isDark ? "bg-gray-700 hover:bg-gray-600 text-amber-400" : "bg-gray-100 hover:bg-gray-200 text-amber-600"}`}
-                            title="Toggle dark mode"
+                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isDark
+                                ? "bg-gray-800 text-amber-400 hover:bg-gray-700"
+                                : "bg-gray-100 text-gray-500 hover:text-amber-500 hover:bg-amber-50"
+                                }`}
+                            title="Toggle theme"
                         >
                             {isDark ? (
-                                <svg
-                                    className="w-4 h-4"
-                                    fill="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                     <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                                 </svg>
                             ) : (
-                                <svg
-                                    className="w-4 h-4"
-                                    fill="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                                 </svg>
                             )}
@@ -328,29 +376,27 @@ export default function Layout({ children }) {
                                 onClick={() =>
                                     setIsUserMenuOpen(!isUserMenuOpen)
                                 }
-                                className={`flex items-center gap-2 p-1.5 rounded-md transition-all border ${isDark ? "hover:bg-gray-700 border-gray-700" : "hover:bg-gray-100 border-gray-300"}`}
+                                className={`flex items-center gap-3 p-1.5 pr-4 rounded-full transition-all border ${isDark
+                                    ? "bg-gray-800 border-gray-700 hover:border-gray-600"
+                                    : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-md"
+                                    }`}
                             >
                                 <div
-                                    className={`w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-black ${isDark ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-orange-50 text-orange-600 border-orange-200"} border shadow-sm`}
+                                    className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-black text-white bg-linear-to-br from-orange-500 to-orange-600 shadow-md shadow-orange-500/20`}
                                 >
                                     {user?.name
                                         ? user.name.charAt(0).toUpperCase()
                                         : "?"}
                                 </div>
-                                <div className="flex-col text-right hidden sm:flex text-[11px]">
+                                <div className="flex-col text-right hidden sm:flex">
                                     <span
-                                        className={`font-bold leading-none ${isDark ? "text-white" : "text-black"}`}
+                                        className={`text-xs font-bold leading-none ${isDark ? "text-gray-200" : "text-gray-900"}`}
                                     >
                                         {user?.name ?? "User"}
                                     </span>
-                                    <span
-                                        className={`text-[9px] font-bold uppercase tracking-tighter mt-0.5 ${isDark ? "text-gray-500" : "text-gray-600"}`}
-                                    >
-                                        {user?.role ?? ""}
-                                    </span>
                                 </div>
                                 <svg
-                                    className={`w-3 h-3 transition-transform ${isDark ? "text-gray-500" : "text-gray-400"} ${isUserMenuOpen ? "rotate-180" : ""}`}
+                                    className={`w-4 h-4 transition-transform ${isDark ? "text-gray-500" : "text-gray-400"} ${isUserMenuOpen ? "rotate-180" : ""}`}
                                     fill="none"
                                     viewBox="0 0 24 24"
                                     stroke="currentColor"
@@ -358,7 +404,7 @@ export default function Layout({ children }) {
                                     <path
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
-                                        strokeWidth={2}
+                                        strokeWidth={2.5}
                                         d="M19 9l-7 7-7-7"
                                     />
                                 </svg>
@@ -366,61 +412,44 @@ export default function Layout({ children }) {
 
                             {isUserMenuOpen && (
                                 <div
-                                    className={`absolute right-0 mt-1 w-48 rounded-lg shadow-xl border z-50 animate-in fade-in zoom-in duration-200 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+                                    className={`absolute right-0 mt-4 w-60 rounded-3xl shadow-2xl border z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right ring-1 ring-black/5 ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"}`}
                                 >
-                                    <div
-                                        className={`px-3 py-2 border-b ${isDark ? "border-gray-700 bg-gray-700/30" : "border-gray-200 bg-gray-50"}`}
-                                    >
-                                        <p
-                                            className={`text-[8px] font-bold uppercase tracking-widest ${isDark ? "text-gray-500" : "text-gray-600"} mb-0.5`}
-                                        >
-                                            Signed in as
+                                    <div className="p-6 bg-linear-to-br from-orange-500/10 to-transparent">
+                                        <p className={`text-sm font-black ${isDark ? "text-white" : "text-gray-900"}`}>
+                                            {user?.name}
                                         </p>
-                                        <p
-                                            className={`text-xs font-bold truncate ${isDark ? "text-gray-200" : "text-gray-900"}`}
-                                        >
-                                            {user.email}
+                                        <p className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                                            {user?.email}
                                         </p>
+                                        <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${isDark ? "bg-white/10 text-white" : "bg-gray-100 text-gray-600"}`}>
+                                            {user?.role}
+                                        </span>
                                     </div>
-                                    <Link
-                                        to="/profile"
-                                        className={`flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-md transition-all ${isDark ? "hover:bg-gray-700 text-gray-300 hover:text-orange-400" : "hover:bg-gray-100 text-gray-700 hover:text-orange-600"}`}
-                                        onClick={() => setIsUserMenuOpen(false)}
-                                    >
-                                        <svg
-                                            className="w-4 h-4"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
+
+                                    <div className="p-2 space-y-1">
+                                        <Link
+                                            to="/profile"
+                                            className={`flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-2xl transition-all ${isDark ? "hover:bg-gray-700 text-gray-300 hover:text-white" : "hover:bg-gray-50 text-gray-600 hover:text-gray-900"}`}
+                                            onClick={() => setIsUserMenuOpen(false)}
                                         >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                            />
-                                        </svg>
-                                        My Settings
-                                    </Link>
-                                    <button
-                                        onClick={handleLogout}
-                                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-md transition-all ${isDark ? "hover:bg-rose-500/20 text-rose-400" : "hover:bg-rose-50 text-rose-600"}`}
-                                    >
-                                        <svg
-                                            className="w-3.5 h-3.5"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                            Account Settings
+                                        </Link>
+
+                                        <hr className={`my-2 ${isDark ? "border-gray-700" : "border-gray-100"}`} />
+
+                                        <button
+                                            onClick={handleLogout}
+                                            className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-2xl transition-all ${isDark ? "hover:bg-rose-500/10 text-rose-400" : "hover:bg-rose-50 text-rose-600"}`}
                                         >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                                            />
-                                        </svg>
-                                        Sign Out
-                                    </button>
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                            </svg>
+                                            Sign Out
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -429,22 +458,14 @@ export default function Layout({ children }) {
 
                 {/* Main Content */}
                 <main
-                    className={`flex-1 overflow-y-auto p-5 custom-scrollbar relative z-10 transition-all ${isDark ? "bg-gray-900" : "bg-gray-50"}`}
+                    className={`flex-1 overflow-y-auto p-8 custom-scrollbar relative z-10 transition-all ${isDark ? "bg-gray-950" : "bg-gray-50/50"}`}
                 >
-                    <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="max-w-[1600px] mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
                         {children}
                     </div>
                 </main>
 
                 <SessionModal />
-
-                {/* Background Accents */}
-                <div
-                    className={`absolute top-[-15%] right-[-12%] w-[45%] h-[45%] blur-[140px] rounded-full pointer-events-none ${isDark ? "bg-orange-500/5" : "bg-orange-500/8"}`}
-                ></div>
-                <div
-                    className={`absolute bottom-[-15%] left-[-12%] w-[35%] h-[35%] blur-[140px] rounded-full pointer-events-none ${isDark ? "bg-orange-600/5" : "bg-orange-600/8"}`}
-                ></div>
             </div>
         </div>
     );

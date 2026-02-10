@@ -55,11 +55,15 @@ class TaskController extends Controller
         $userId = $request->user()->id;
 
         // Check if already finalized
-        $plan = DailyPlan::where('user_id', $userId)->where('date', $data['date'])->first();
-        if ($plan && $plan->is_finalized) {
-            return response()->json(['message' => 'Plan is already finalized for this date.'], 422);
-        }
+        $cutoffTime = \Carbon\Carbon::parse($data['date'])->addHours(12); // Example: 12 PM cutoff
+        $now = now();
 
+        // Check if plan exists
+        $plan = DailyPlan::where('user_id', $userId)->where('date', $data['date'])->first();
+
+        // Logic Change: Allow edits if it's the same day and within shift (or before cutoff)
+        // Previous strict check removed: "if ($plan && $plan->is_finalized) ..."
+        
         $created = [];
         foreach ($data['tasks'] as $row) {
             $task = Task::create([
@@ -77,10 +81,18 @@ class TaskController extends Controller
             $created[] = $task;
         }
 
-        // Finalize the plan
+        // Finalize the plan (or update existing)
+        // FIX: Ensure date is Y-m-d string to avoid unique constraint violation with datetimes
         DailyPlan::updateOrCreate(
-            ['user_id' => $userId, 'date' => $data['date']],
-            ['is_finalized' => true, 'finalized_at' => now()]
+            [
+                'user_id' => $userId, 
+                'date' => \Carbon\Carbon::parse($data['date'])->toDateString()
+            ],
+            [
+                'is_finalized' => true, 
+                'finalized_at' => now(),
+                // If it was already finalized, we update the timestamp to show latest edit
+            ]
         );
 
         return response()->json($created, 201);

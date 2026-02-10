@@ -104,18 +104,18 @@ export default function EmployeeDashboard() {
         );
 
     return (
-        <div className="min-h-screen bg-neutral-50/50 -mt-6 -mx-4 px-4 pt-4 pb-12 space-y-6">
+        <div className="space-y-8">
             {/* Ultra-Premium Hero Header */}
             <header className="relative group perspective-1000">
-                <div className="relative z-10 p-5 md:p-6 rounded-lg bg-neutral-900 dark:bg-gray-800 border border-neutral-800 dark:border-gray-700 shadow-[0_20px_40px_-10px_rgba(0,0,0,0.3)] overflow-hidden transition-all duration-700 hover:shadow-orange-500/10">
-                    <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-                        <div className="space-y-3 max-w-2xl">
+                <div className="relative z-10 p-8 rounded-3xl bg-neutral-900 dark:bg-gray-800 border border-neutral-800 dark:border-gray-700 shadow-2xl shadow-black/20 overflow-hidden transition-all duration-700 hover:shadow-orange-500/10">
+                    <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-8">
+                        <div className="space-y-4 max-w-2xl">
                             <div className="flex items-center gap-4 animate-in fade-in slide-in-from-left-4 duration-700">
-                                <span className="px-4 py-1.5 bg-orange-500/10 backdrop-blur-md rounded-full text-[10px] font-black text-orange-400 uppercase tracking-[0.3em] border border-orange-500/20">
+                                <span className="px-5 py-2 bg-orange-500/10 backdrop-blur-md rounded-full text-xs font-black text-orange-400 uppercase tracking-[0.2em] border border-orange-500/20">
                                     Daily Flow
                                 </span>
                                 <div className="h-px w-8 bg-neutral-700"></div>
-                                <span className="text-neutral-500 text-[10px] font-black uppercase tracking-[0.3em]">
+                                <span className="text-neutral-500 text-xs font-black uppercase tracking-[0.2em]">
                                     {new Date().toLocaleDateString("en-US", {
                                         weekday: "long",
                                         month: "short",
@@ -124,13 +124,13 @@ export default function EmployeeDashboard() {
                                 </span>
                             </div>
 
-                            <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-[0.9] animate-in fade-in slide-in-from-left-8 duration-1000">
+                            <h1 className="text-5xl md:text-6xl font-black text-white tracking-tight leading-[0.9] animate-in fade-in slide-in-from-left-8 duration-1000">
                                 Good{" "}
                                 {new Date().getHours() < 12
                                     ? "Morning"
                                     : new Date().getHours() < 17
-                                      ? "Afternoon"
-                                      : "Evening"}
+                                        ? "Afternoon"
+                                        : "Evening"}
                                 ,<br />
                                 <span className="bg-linear-to-r from-orange-400 via-orange-400 to-orange-400 bg-clip-text text-transparent">
                                     {user?.name
@@ -139,27 +139,27 @@ export default function EmployeeDashboard() {
                                 </span>
                             </h1>
 
-                            <p className="text-neutral-400 font-medium text-sm max-w-md leading-relaxed opacity-80 animate-in fade-in duration-1000 delay-300">
+                            <p className="text-neutral-400 font-medium text-base max-w-lg leading-relaxed opacity-80 animate-in fade-in duration-1000 delay-300">
                                 Let's make today productive and focused.
                             </p>
                         </div>
 
                         <div className="flex flex-col gap-3 self-start md:self-end animate-in fade-in slide-in-from-right-8 duration-1000">
-                            <div className="flex items-center gap-4 p-4 bg-white/5 backdrop-blur-3xl rounded-2xl border border-white/10 ring-1 ring-white/5">
+                            <div className="flex items-center gap-6 p-5 bg-white/5 backdrop-blur-3xl rounded-2xl border border-white/10 ring-1 ring-white/5">
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1 opacity-70">
+                                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1.5 opacity-70">
                                         Shift Status
                                     </span>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
                                         <span className="text-white font-black text-2xl tracking-tight leading-none italic uppercase">
                                             Active
                                         </span>
                                     </div>
                                 </div>
-                                <div className="h-10 w-px bg-white/10 mx-2"></div>
+                                <div className="h-10 w-px bg-white/10"></div>
                                 <div className="flex flex-col">
-                                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1 opacity-70">
+                                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1.5 opacity-70">
                                         Window
                                     </span>
                                     <span className="text-white font-black text-xl tracking-tighter leading-none opacity-90">
@@ -187,16 +187,16 @@ export default function EmployeeDashboard() {
                 </div>
             </header>
 
-            {/* Deadline Timer - Critical for submission enforcement */}
+            {/* Deadline Timer */}
             <div className="animate-in fade-in slide-in-from-top duration-500 delay-100">
                 <DeadlineTimer refreshInterval={30000} />
             </div>
 
             {/* Dashboard Workspace */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
                 {/* Left Column: Intention Setting */}
-                <aside className="xl:col-span-4 space-y-6">
-                    <section className="bg-white dark:bg-gray-800 rounded-lg p-5 shadow-xl shadow-slate-200/50 dark:shadow-gray-900/50 border border-slate-100 dark:border-gray-700 overflow-hidden relative group transition-all duration-500 hover:shadow-orange-500/10">
+                <aside className="xl:col-span-4 space-y-8">
+                    <section className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-xl shadow-slate-200/50 dark:shadow-gray-900/50 border border-slate-100 dark:border-gray-700 overflow-hidden relative group transition-all duration-500 hover:shadow-orange-500/10">
                         <div className="relative z-10 space-y-6">
                             <div className="flex items-center justify-between">
                                 <div className="flex flex-col">
@@ -262,15 +262,15 @@ export default function EmployeeDashboard() {
                         <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50/50 dark:bg-orange-900/20 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-orange-100/50 dark:group-hover:bg-orange-800/30 transition-all"></div>
                     </section>
 
-                    <section className="bg-neutral-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden group">
-                        <div className="relative z-10 space-y-3">
-                            <div className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
-                                <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest">
+                    <section className="bg-neutral-900 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden group">
+                        <div className="relative z-10 space-y-4">
+                            <div className="flex items-center gap-3">
+                                <span className="w-2 h-2 rounded-full bg-orange-400"></span>
+                                <span className="text-xs font-black text-orange-400 uppercase tracking-widest">
                                     Productivity Tip
                                 </span>
                             </div>
-                            <h4 className="text-lg font-bold leading-tight">
+                            <h4 className="text-xl font-bold leading-tight">
                                 Pro Tip
                             </h4>
                             <p className="text-neutral-400 text-sm font-medium leading-relaxed">
@@ -299,8 +299,8 @@ export default function EmployeeDashboard() {
 
                     {/* Submission Streak */}
                     {submissionStreak && (
-                        <section className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-lg p-5 shadow-lg border border-blue-200/50 dark:border-blue-900/50 overflow-hidden relative group">
-                            <div className="relative z-10 space-y-4">
+                        <section className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-3xl p-6 shadow-lg border border-blue-200/50 dark:border-blue-900/50 overflow-hidden relative group">
+                            <div className="relative z-10 space-y-5">
                                 <div className="flex items-center justify-between">
                                     <div className="flex flex-col">
                                         <h3 className="text-lg font-black text-blue-900 dark:text-blue-100 tracking-tight">
@@ -311,16 +311,16 @@ export default function EmployeeDashboard() {
                                         </p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-sm">🔥</span>
+                                        <span className="text-base">🔥</span>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-white/60 dark:bg-blue-900/20 rounded-lg p-3 backdrop-blur-sm border border-blue-100/50 dark:border-blue-800/50">
-                                        <p className="text-[10px] font-black text-blue-700/70 dark:text-blue-300/70 uppercase tracking-wider mb-1">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white/60 dark:bg-blue-900/20 rounded-2xl p-4 backdrop-blur-sm border border-blue-100/50 dark:border-blue-800/50">
+                                        <p className="text-[10px] font-black text-blue-700/70 dark:text-blue-300/70 uppercase tracking-wider mb-2">
                                             Current
                                         </p>
-                                        <p className="text-2xl font-black text-blue-900 dark:text-blue-100">
+                                        <p className="text-3xl font-black text-blue-900 dark:text-blue-100">
                                             {
                                                 submissionStreak.data
                                                     .current_streak
@@ -330,11 +330,11 @@ export default function EmployeeDashboard() {
                                             days
                                         </p>
                                     </div>
-                                    <div className="bg-white/60 dark:bg-blue-900/20 rounded-lg p-3 backdrop-blur-sm border border-blue-100/50 dark:border-blue-800/50">
-                                        <p className="text-[10px] font-black text-blue-700/70 dark:text-blue-300/70 uppercase tracking-wider mb-1">
+                                    <div className="bg-white/60 dark:bg-blue-900/20 rounded-2xl p-4 backdrop-blur-sm border border-blue-100/50 dark:border-blue-800/50">
+                                        <p className="text-[10px] font-black text-blue-700/70 dark:text-blue-300/70 uppercase tracking-wider mb-2">
                                             Longest
                                         </p>
-                                        <p className="text-2xl font-black text-blue-900 dark:text-blue-100">
+                                        <p className="text-3xl font-black text-blue-900 dark:text-blue-100">
                                             {
                                                 submissionStreak.data
                                                     .longest_streak
@@ -346,7 +346,7 @@ export default function EmployeeDashboard() {
                                     </div>
                                 </div>
 
-                                <div className="pt-2 text-[11px] text-blue-700/70 dark:text-blue-300/70 font-medium">
+                                <div className="pt-2 text-[11px] text-blue-700/70 dark:text-blue-300/70 font-medium text-center">
                                     {submissionStreak.data.current_streak > 0
                                         ? "Keep up the streak! 🚀"
                                         : "Start your streak by submitting today"}
@@ -358,8 +358,8 @@ export default function EmployeeDashboard() {
 
                     {/* Daily Productivity Score */}
                     {dailyProductivity && (
-                        <section className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-lg p-5 shadow-lg border border-emerald-200/50 dark:border-emerald-900/50 overflow-hidden relative group">
-                            <div className="relative z-10 space-y-4">
+                        <section className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-3xl p-6 shadow-lg border border-emerald-200/50 dark:border-emerald-900/50 overflow-hidden relative group">
+                            <div className="relative z-10 space-y-5">
                                 <div className="flex items-center justify-between">
                                     <div className="flex flex-col">
                                         <h3 className="text-lg font-black text-emerald-900 dark:text-emerald-100 tracking-tight">
@@ -372,7 +372,7 @@ export default function EmployeeDashboard() {
                                 </div>
 
                                 <div className="flex items-baseline gap-2">
-                                    <div className="text-4xl font-black text-emerald-900 dark:text-emerald-100">
+                                    <div className="text-5xl font-black text-emerald-900 dark:text-emerald-100">
                                         {Math.round(
                                             dailyProductivity.productivity_score,
                                         )}
@@ -382,7 +382,7 @@ export default function EmployeeDashboard() {
                                     </span>
                                 </div>
 
-                                <div className="w-full bg-white/40 dark:bg-emerald-900/20 rounded-full h-2 overflow-hidden border border-emerald-100/50 dark:border-emerald-800/50">
+                                <div className="w-full bg-white/40 dark:bg-emerald-900/20 rounded-full h-3 overflow-hidden border border-emerald-100/50 dark:border-emerald-800/50">
                                     <div
                                         className="h-full bg-linear-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-1000"
                                         style={{
@@ -411,8 +411,8 @@ export default function EmployeeDashboard() {
 
                     {/* Last Evaluation */}
                     {lastEvaluation && (
-                        <section className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 rounded-lg p-5 shadow-lg border border-purple-200/50 dark:border-purple-900/50 overflow-hidden relative group">
-                            <div className="relative z-10 space-y-4">
+                        <section className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 rounded-3xl p-6 shadow-lg border border-purple-200/50 dark:border-purple-900/50 overflow-hidden relative group">
+                            <div className="relative z-10 space-y-5">
                                 <div className="flex items-center justify-between">
                                     <div className="flex flex-col">
                                         <h3 className="text-lg font-black text-purple-900 dark:text-purple-100 tracking-tight">
@@ -425,19 +425,19 @@ export default function EmployeeDashboard() {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-white/60 dark:bg-purple-900/20 rounded-lg p-3 backdrop-blur-sm border border-purple-100/50 dark:border-purple-800/50">
-                                        <p className="text-[9px] font-black text-purple-700/70 dark:text-purple-300/70 uppercase tracking-wider mb-1.5">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white/60 dark:bg-purple-900/20 rounded-2xl p-4 backdrop-blur-sm border border-purple-100/50 dark:border-purple-800/50">
+                                        <p className="text-[10px] font-black text-purple-700/70 dark:text-purple-300/70 uppercase tracking-wider mb-2">
                                             Final Score
                                         </p>
-                                        <p className="text-3xl font-black text-purple-900 dark:text-purple-100">
+                                        <p className="text-4xl font-black text-purple-900 dark:text-purple-100">
                                             {lastEvaluation.scores.final || "-"}
                                         </p>
                                     </div>
-                                    <div className="space-y-2">
+                                    <div className="space-y-3">
                                         {lastEvaluation.scores.supervisor && (
-                                            <div className="bg-white/60 dark:bg-purple-900/20 rounded-lg p-2 backdrop-blur-sm border border-purple-100/50 dark:border-purple-800/50">
-                                                <p className="text-[8px] font-black text-purple-700/70 dark:text-purple-300/70 uppercase tracking-wider">
+                                            <div className="bg-white/60 dark:bg-purple-900/20 rounded-xl p-3 backdrop-blur-sm border border-purple-100/50 dark:border-purple-800/50">
+                                                <p className="text-[8px] font-black text-purple-700/70 dark:text-purple-300/70 uppercase tracking-wider mb-1">
                                                     Supervisor
                                                 </p>
                                                 <p className="text-xl font-bold text-purple-900 dark:text-purple-100">
@@ -449,8 +449,8 @@ export default function EmployeeDashboard() {
                                             </div>
                                         )}
                                         {lastEvaluation.scores.hr && (
-                                            <div className="bg-white/60 dark:bg-purple-900/20 rounded-lg p-2 backdrop-blur-sm border border-purple-100/50 dark:border-purple-800/50">
-                                                <p className="text-[8px] font-black text-purple-700/70 dark:text-purple-300/70 uppercase tracking-wider">
+                                            <div className="bg-white/60 dark:bg-purple-900/20 rounded-xl p-3 backdrop-blur-sm border border-purple-100/50 dark:border-purple-800/50">
+                                                <p className="text-[8px] font-black text-purple-700/70 dark:text-purple-300/70 uppercase tracking-wider mb-1">
                                                     HR Score
                                                 </p>
                                                 <p className="text-xl font-bold text-purple-900 dark:text-purple-100">
@@ -461,7 +461,7 @@ export default function EmployeeDashboard() {
                                     </div>
                                 </div>
 
-                                <button className="w-full text-[10px] font-black text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 uppercase tracking-widest py-2 transition-all">
+                                <button className="w-full text-[10px] font-black text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 uppercase tracking-widest py-3 transition-all">
                                     View Details →
                                 </button>
                             </div>
@@ -471,8 +471,8 @@ export default function EmployeeDashboard() {
 
                     {/* Improvement Suggestions */}
                     {suggestions && suggestions.data.suggestions.length > 0 && (
-                        <section className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-lg p-5 shadow-lg border border-amber-200/50 dark:border-amber-900/50 overflow-hidden relative group">
-                            <div className="relative z-10 space-y-4">
+                        <section className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-3xl p-6 shadow-lg border border-amber-200/50 dark:border-amber-900/50 overflow-hidden relative group">
+                            <div className="relative z-10 space-y-5">
                                 <div className="flex items-center justify-between">
                                     <div className="flex flex-col">
                                         <h3 className="text-lg font-black text-amber-900 dark:text-amber-100 tracking-tight">
@@ -482,16 +482,16 @@ export default function EmployeeDashboard() {
                                             Based on Your Performance
                                         </p>
                                     </div>
-                                    <span className="text-sm">💡</span>
+                                    <span className="text-base">💡</span>
                                 </div>
 
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     {suggestions.data.suggestions
                                         .slice(0, 2)
                                         .map((sugg, idx) => (
                                             <div
                                                 key={idx}
-                                                className="bg-white/60 dark:bg-amber-900/20 rounded-lg p-3 backdrop-blur-sm border border-amber-100/50 dark:border-amber-800/50"
+                                                className="bg-white/60 dark:bg-amber-900/20 rounded-xl p-3 backdrop-blur-sm border border-amber-100/50 dark:border-amber-800/50"
                                             >
                                                 <p className="text-xs font-black text-amber-900 dark:text-amber-100 mb-1">
                                                     {sugg.title}
@@ -504,7 +504,7 @@ export default function EmployeeDashboard() {
                                 </div>
 
                                 {suggestions.data.suggestions.length > 2 && (
-                                    <button className="w-full text-[10px] font-black text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 uppercase tracking-widest py-2 transition-all">
+                                    <button className="w-full text-[10px] font-black text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 uppercase tracking-widest py-3 transition-all">
                                         View All Tips →
                                     </button>
                                 )}
